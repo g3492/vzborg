@@ -84,20 +84,20 @@ vzborg_backup() {
     say "Host $(hostname) - vzborg backup started." >>${SUMMARY_FILE}
     say "Host $(hostname) - Virtual machines: $vm_ids" >>${SUMMARY_FILE}
 
-    printf "$HEADER" "TY" "VMID" "TIME" "NAME" >>${SUMMARY_FILE}
+    printf "$header_format" "TY" "VMID" "TIME" "NAME" >>${SUMMARY_FILE}
 
     # Loop through each ID
     for VM_ID in $vm_ids; do
         VM_TYPE=''
-        if [ -e "${CT_CONF_DIR}${VM_ID}.conf" ]; then
+        if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
             VM_TYPE='CT'
-            VM_HOSTNAME="$(cat ${CT_CONF_DIR}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
+            VM_HOSTNAME="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
         else
-            if [ -e "${VM_CONF_DIR}${VM_ID}.conf" ]; then
+            if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
                 VM_TYPE='VM'
-                VM_HOSTNAME="$(cat ${VM_CONF_DIR}${VM_ID}.conf | grep ^name | awk '{print $2}')"
+                VM_HOSTNAME="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
             else
                 # unknown vm
                 VM_TYPE='--'
@@ -128,7 +128,7 @@ vzborg_backup() {
         AFTER="$(date +%s)"
         ELAPSED_SECONDS="$(expr $AFTER - $BEFORE)"
         say "Done."
-        printf "$LINE" $VM_TYPE $VM_ID $(($ELAPSED_SECONDS / 3600)) $(($ELAPSED_SECONDS % 3600 / 60)) $(($ELAPSED_SECONDS % 60)) $VM_HOSTNAME >>${SUMMARY_FILE}
+        printf "$line_format" $VM_TYPE $VM_ID $(($ELAPSED_SECONDS / 3600)) $(($ELAPSED_SECONDS % 3600 / 60)) $(($ELAPSED_SECONDS % 60)) $VM_HOSTNAME >>${SUMMARY_FILE}
     done
 
     echo "" >>${SUMMARY_FILE}
@@ -402,15 +402,15 @@ vzborg_prune() {
     # Loop through each ID
     for VM_ID in $vm_ids; do
         VM_TYPE=''
-        if [ -e "${CT_CONF_DIR}${VM_ID}.conf" ]; then
+        if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
             VM_TYPE='CT'
-            VM_HOSTNAME="$(cat ${CT_CONF_DIR}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
+            VM_HOSTNAME="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
         else
-            if [ -e "${VM_CONF_DIR}${VM_ID}.conf" ]; then
+            if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
                 VM_TYPE='VM'
-                VM_HOSTNAME="$(cat ${VM_CONF_DIR}${VM_ID}.conf | grep ^name | awk '{print $2}')"
+                VM_HOSTNAME="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
             else
                 # unknown vm
                 VM_TYPE='--'
@@ -515,6 +515,13 @@ vm_ids=''
 vzborg_command=''
 force_overwrite=''
 dry_run=''
+# Containers configuration directory
+ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
+# Qemu virtual machines configuration directory
+vm_conf_dir="/eetc/pve/nodes/`hostname`/qemu-server/"
+# printf formats for dump times
+header_format="\n%2s  %5s  %8s  %-42s\n"
+line_format="%2s  %5s  %02d:%02d:%02d  %-42s\n"
 # if VZBORG_PASSPHRASE is defined export it as Borg BORG_PASSPHRASE
 if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
     export BORG_PASSPHRASE="${VZBORG_PASSPHRASE}"
