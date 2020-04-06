@@ -36,69 +36,6 @@ version_greater_equal() {
 
 # VZBORG FUNCTIONS
 
-vzborg_main() {
-    # Option parser
-    while [ $# -gt 0 ]; do
-        case "$1" in
-        -b | --backup)
-            BACKUP_NAME="$2"
-            shift 2
-            ;;
-        -c | --command)
-            vzborg_command="$2"
-            shift 2
-            ;;
-        -d | --dry-run)
-            dry_run="--dry-run"
-            shift 1
-            ;;
-        -f | --force)
-            force_overwrite="--force yes"
-            shift 1
-            ;;
-        -h | --help)
-            show_command_help=true
-            shift 1
-            ;;
-        -i | --ids)
-            vm_ids="$2"
-            shift 2
-            ;;
-        -k | --keep)
-            VZDUMP_MODE="$2"
-            shift 2
-            ;;
-        -m | --mode)
-            KEEP_SETTINGS="$2"
-            shift 2
-            ;;
-        -r | --repository)
-            VZBORG_REPO="$2"
-            shift 2
-            ;;
-        -s | --storage)
-            PVE_STORAGE="$2"
-            shift 2
-            ;;
-        *)
-            die "Invalid option \"$1\". Try vzborg -c help"
-            ;;
-        esac
-    done
-
-    case ${vzborg_command} in
-    backup) vzborg_backup ;;
-    delete) vzborg_delete ;;
-    discard) vzborg_discard ;;
-    restore) vzborg_restore ;;
-    list) vzborg_list ;;
-    prune) vzborg_prune ;;
-    getdump) vzborg_getdump ;;
-    help) vzborg_help ;;
-    version) vzborg_version ;;
-    *) die "Invalid or not given vzborg command. Try vzborg -c help" ;;
-    esac
-}
 vzborg_backup() {
     if [[ ${show_command_help} = true ]]; then
         echo
@@ -544,7 +481,7 @@ vzborg_restore() {
 
 }
 vzborg_version() {
-    echo 'vzborg 0.3.0 (alfa)'
+    echo 'vzborg 0.4.0 (alfa)'
     borg --version
     pveversion
     # 0.3.1 (alfa)
@@ -552,13 +489,12 @@ vzborg_version() {
     # 0.3.2 (alfa)
     #   tested in proxmox 5.x
     # 0.4.0 (alfa)
-    #   install.sh
-    #   sane defaults always
+    #   installation script
+    #   sane defaults
     # 0.5.0 (alfa)
     #   vzborg.conf validation
     #   updated and reformated help
     # 0.6.0 (alfa)
-    #   local git repository
     #   parameters validation
     # 0.7.0 (alfa)
     #   basic debian package
@@ -567,6 +503,7 @@ vzborg_version() {
     #   ask for contributions
     #   internationalization
     #   internationalization spanish
+    # 1.0 
 }
 
 # VZBORG BODY
@@ -584,5 +521,65 @@ if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
 fi
 # Get borg version
 borg_version="$(borg -V | cut -d' ' -f2)"
-# run vzborg main function
-vzborg_main
+
+# Option parser
+while [ $# -gt 0 ]; do
+    case "$1" in
+    -b | --backup)
+        BACKUP_NAME="$2"
+        shift 2
+        ;;
+    -c | --command)
+        vzborg_command="$2"
+        shift 2
+        ;;
+    -d | --dry-run)
+        dry_run="--dry-run"
+        shift 1
+        ;;
+    -f | --force)
+        force_overwrite="--force yes"
+        shift 1
+        ;;
+    -h | --help)
+        show_command_help=true
+        shift 1
+        ;;
+    -i | --ids)
+        vm_ids="$2"
+        shift 2
+        ;;
+    -k | --keep)
+        VZDUMP_MODE="$2"
+        shift 2
+        ;;
+    -m | --mode)
+        KEEP_SETTINGS="$2"
+        shift 2
+        ;;
+    -r | --repository)
+        VZBORG_REPO="$2"
+        shift 2
+        ;;
+    -s | --storage)
+        PVE_STORAGE="$2"
+        shift 2
+        ;;
+    *)
+        die "Invalid option \"$1\". Try vzborg -c help"
+        ;;
+    esac
+done
+
+case ${vzborg_command} in
+backup) vzborg_backup ;;
+delete) vzborg_delete ;;
+discard) vzborg_discard ;;
+restore) vzborg_restore ;;
+list) vzborg_list ;;
+prune) vzborg_prune ;;
+getdump) vzborg_getdump ;;
+help) vzborg_help ;;
+version) vzborg_version ;;
+*) die "Invalid or not given vzborg command. Try vzborg -c help" ;;
+esac
