@@ -1,22 +1,21 @@
 # vzborg utility
 **Deduplicated, encrypted backups for the Proxmox Virtual Environment.**
 
-Vzborg uses vzdump and borg backup to allow deduplicated, compressed backups of Proxmox guests, in an optionally encrypted repository.
+With vzborg you can:
+- Backup, restore, delete, list and mantain your backups in a flexible and efficient way.
+- Use default retention settings to keep your desired number of hourly, daily, weekly, monthly and yearly backups.
+- Set up automated backups to remote repositories, simply setting appropriate ssh keys.
 
-With vzborg, you can backup, restore, delete, list and mantain your backups in a flexible and efficient way.
-
-Use default retention settings to keep a suitable number of hourly, daily, weekly, monthly and yearly backups of your guest.
-
-Set up automated backups to remote repositories, simply setting appropriate ssh keys.
+Vzborg uses vzdump and [BorgBackup](https://www.borgbackup.org/) to allow deduplicated, compressed backups of Proxmox guests, in an optionally encrypted repository.
 
 ## Requirements
-You need a proxmox 5.x or 6.x server with a suitable borg backup package installed. 
+You need a proxmox 5.x or 6.x server with a suitable BorgBackup package installed. 
 
-If you are in proxmox 6.x you can just install it with:
+If you are in proxmox 6.x you can install BorgBackup with:
 
 `apt install borgbackup`
 
-If you are in proxmox 5.x you must enable stretch-backports repository and install it with:
+If you are in proxmox 5.x you must enable stretch-backports repository and install Borg backup from it with:
 
 `apt install -t stretch-backports borgbackup`
 
@@ -51,24 +50,38 @@ Where COMMAND is one of:
 |  version  |Show vzborg, borg and pve version.  |
             
 
-### Aditional options
-| Option          | Value      | Use                       |Description                        |
-|:----------------|:-----------|:--------------------------|:-----------------------------------|
-|-b (--backup)    |BACKUP_NAME |delete/restore             |Name of an existing backup (archive)|
-|-d (--dry-run)   |            |backup/prune               |  Perform simulation|         
-|-f (--force)     |            |restore                    |Force overwrite of existing VM/CT|
-|-h (--help)|     |            |all                        |Display command help. Requires -c option|                   
-|-i (--ids)       |VM_ID       |backup/discard             |PVE VM/CT ID or list of PVE VM/CT IDs  |
-|-k (--keep)      |RETENTION   |prune|List of retention settings |
-|-m (--mode)      |MODE        |backup                     | vzdump mode (default = snapshot)|
-|-r (--repository)|REPOSITORY  |backup/getdump/list/restore| Borg repository |
-|-s (--storage)   |STORAGE     |getdump/restore            | Proxmox storage (default = local)|
+### Additional options
+| Option          | Value      | Use                    |Description                        |
+|:----------------|:-----------|:-----------------------|:-----------------------------------|
+|-b (--backup)    |BACKUP_NAME |delete/restore          |Name of an existing backup (archive)|
+|-d (--dry-run)   |            |backup/prune            |Just perform a simulation|
+|-f (--force)     |            |restore                 |Force overwrite of existing VM/CT|
+|-h (--help)      |            |all except help/version |Display command help. Requires -c option|
+|-i (--id)        |VM_ID       |backup/discard/restore  |PVE VM/CT ID or list of PVE VM/CT IDs  |
+|-k (--keep)      |RETENTION   |prune                   |List of retention settings |
+|-m (--mode)      |MODE        |backup                  | vzdump mode (default = snapshot)|
+|-r (--repository)|REPOSITORY  |all except help/version | Borg repository |
+|-s (--storage)   |STORAGE     |getdump/restore         | Proxmox storage (default = local)|
 
 ### Configuration file:
 
  `/etc/vzborg.conf`
 
 Edit before using vzborg, to customize defaults parameters.
+
+### Backup names
+
+vzborg creates backups encoding the guest ID and the backup time into the filename, for example:
+
+`vzborg-104-2020_04_02-17_12_34.tar` for an lxc container
+
+`vzborg-104-2020_04_02-17_15_11.vma` for a virtual machine
+
+When recreating a Proxmox backup file (getdump command) vzborg will use the default PVE naming convention, for example:
+
+`vzdump-lxc-104-2020_04_02-17_12_34.tar.lzo` for an lxc container
+
+`vzdump-qemu-104-2020_04_02-17_15_11.vma.lzo` for a virtual machine
 
 
 ### Examples
@@ -107,13 +120,13 @@ Prune or purge backups of guests with IDs 101, 102 and 307, on default repositor
 
 `vzborg -c prune -i '101 102 307' -k '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
 
-Prune or purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 montly an 2 yearly backups.
+Prune or purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly an 2 yearly backups.
 
 ## License
 Licensed under GNU Affero General Public License, version 3.
 
 ## Feedback, bug-reports, requests, ...
-They are welcome [here](https://github.com/g3492/vzborg/issues)!
+They are welcome [here!](https://github.com/g3492/vzborg/issues)
 
 ## Important note
 vzborg is alfa software under development. Use it at your own risk

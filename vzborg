@@ -545,7 +545,7 @@ while [ $# -gt 0 ]; do
         show_command_help=true
         shift 1
         ;;
-    -i | --ids)
+    -i | --id)
         vm_ids="$2"
         shift 2
         ;;
