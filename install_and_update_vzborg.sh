@@ -54,12 +54,12 @@ if [[ -f /usr/bin/borg ]]; then
         die "You need borg backup version >= 1.1.0"
     fi
 else
-    die "Can not find borg. Is Borg backup installed?"
+    die "Can not find borg. Is Borg Backup installed?"
 fi
 
 # Install
 say "Installing vzborg to /usr/local/bin"
-wget -P /usr/local/bin https://raw.githubusercontent.com/g3492/vzborg/master/vzborg
+wget https://raw.githubusercontent.com/g3492/vzborg/master/vzborg -O /usr/local/bin/vzborg
 chmod +x /usr/local/bin/vzborg
 if [[ -f /etc/vzborg.conf ]]; then
     say "Configuration file /etc/vzborg.conf exist."

@@ -1,5 +1,5 @@
 # Vzborg utility
-**Deduplicated, encrypted backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ ).**
+## **Deduplicated, encrypted backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ )**
 
 With Vzborg you can:
 - Backup, restore, delete, list and maintain your backups in a flexible and efficient way.
@@ -15,13 +15,13 @@ If you are in proxmox 6.x you can install BorgBackup with:
 
 `apt install borgbackup`
 
-If you are in proxmox 5.x you must enable stretch-backports repository if you do not have it configured:
+If you are in proxmox 5.x you must enable stretch-backports repository:
 
-`echo "deb http://ftp.debian.org/debian stretch-backports main" >>/etc/apt/sources.list"`
-
-`apt-get update`
+`echo "deb http://ftp.debian.org/debian stretch-backports main" >>/etc/apt/sources.list`
 
  Then install BorgBackup from it:
+
+`apt update`
 
 `apt install -t stretch-backports borgbackup`
 
