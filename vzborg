@@ -6,8 +6,7 @@ set -o errexit
 set -o nounset
 # Exit on pipe fail
 set -o pipefail
-
-#[[ "${DEBUG}" == 'true' ]] && set -o xtrace
+# set -o xtrace
 
 
 # LOAD DEFAULT VARIABLES FROM CONF FILE
@@ -107,7 +106,7 @@ vzborg_backup() {
 
         if version_greater_equal "${borg_version}" 1.1.0; then
             BACKUP_COMMENT="--comment='${VM_TYPE} ${VM_HOSTNAME}'"
-            COMPRESSION="--compression=${DEFAULT_COMPRESSION}"
+            COMPRESSION="--compression=${DEFAULT_COMPRESSION:-'zstd,9'}"
         else
             BACKUP_COMMENT=''
             COMPRESSION="-C lzma"

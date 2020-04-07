@@ -25,7 +25,7 @@ If you are in proxmox 5.x you must enable stretch-backports repository:
 
 `apt install -t stretch-backports borgbackup`
 
-If you want to use a remote repository, you need BorgBackup installed on it, with the same or a greater version, than in your proxmox server. If your remote repository is in another proxmox server, you can also install Vzborg on it.
+If you want to use a remote repository, you need BorgBackup installed on the remote computer, with the same or a greater version, than in your proxmox server. If your remote repository is in another proxmox server, you can also install Vzborg on it.
 
 ## Installation
 As user root in your Proxmox server run:
@@ -78,11 +78,11 @@ Example:
 
  `/etc/vzborg.conf`
 
-Edit before using Vzborg, to customize defaults values.
+Edit before using Vzborg, to customize defaults values for repository, encryption, etc..
 
 ### Backup names
 
-Vzborg creates backups encoding the guest ID and the backup time into the filename, for example:
+Vzborg creates backups encoding the guest ID and the backup time into the name, for example:
 
 `vzborg-104-2020_04_02-17_12_34.tar` for an lxc container
 
