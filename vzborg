@@ -54,14 +54,14 @@ vzborg_backup() {
         exit
     fi
 
-    local MODE=${VZDUMP_MODE:-snapshot}
-    local DETAIL_FILE="$(mktemp /tmp/vzborg.XXXXXX)"
-    local SUMMARY_FILE="$(mktemp /tmp/vzborg.XXXXXX)"
+    local mode=${VZDUMP_MODE:-snapshot}
+    local detail_file="$(mktemp /tmp/vzborg.XXXXXX)"
+    local summary_file="$(mktemp /tmp/vzborg.XXXXXX)"
 
-    echo '' >>${DETAIL_FILE}
-    echo "DETAILED BACKUP INFORMATION" >>${DETAIL_FILE}
-    echo "---------------------------" >>${DETAIL_FILE}
-    echo '' >>${DETAIL_FILE}
+    echo '' >>${detail_file}
+    echo "DETAILED BACKUP INFORMATION" >>${detail_file}
+    echo "---------------------------" >>${detail_file}
+    echo '' >>${detail_file}
 
     # Virtual machines IDs
     if [[ $vm_ids = "all" ]]; then
@@ -75,70 +75,61 @@ vzborg_backup() {
             mkdir -p ${VZBORG_REPO}
             borg init --encryption=${ENCRYPTION_MODE} ${VZBORG_REPO}
 
-            echo "Borg repository ${VZBORG_REPO} with encryption ${ENCRYPTION_MODE} created" >>${DETAIL_FILE}
-            echo "---------------------------" >>${DETAIL_FILE}
-            echo '' >>${DETAIL_FILE}
+            echo "Borg repository ${VZBORG_REPO} with encryption ${ENCRYPTION_MODE} created" >>${detail_file}
+            echo "---------------------------" >>${detail_file}
+            echo '' >>${detail_file}
         fi
     fi
-    say "Host $(hostname) - vzborg backup started." >>${SUMMARY_FILE}
-    say "Host $(hostname) - Virtual machines: $vm_ids" >>${SUMMARY_FILE}
+    say "Host $(hostname) - vzborg backup started." >>${summary_file}
+    say "Host $(hostname) - Virtual machines: $vm_ids" >>${summary_file}
 
-    printf "$header_format" "TY" "VMID" "TIME" "NAME" >>${SUMMARY_FILE}
+    printf "$header_format" "TY" "VMID" "TIME" "NAME" >>${summary_file}
 
     # Loop through each ID
     for VM_ID in $vm_ids; do
-        VM_TYPE=''
+        vm_type=''
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
-            VM_TYPE='CT'
-            VM_HOSTNAME="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
+            vm_type='CT'
+            vm_ext='tar'
+            vm_hostname="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
-                VM_TYPE='VM'
-                VM_HOSTNAME="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
+                vm_type='VM'
+                vm_ext='vma'
+                vm_hostname="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
             else
                 # unknown vm
-                VM_TYPE='--'
-                VM_HOSTNAME='No_Virtual_Machine_with_this_ID'
+                vm_type='--'
+                vm_hostname='No_Virtual_Machine_with_this_ID'
             fi
         fi
 
-        if version_greater_equal "${borg_version}" 1.1.0; then
-            BACKUP_COMMENT="--comment='${VM_TYPE} ${VM_HOSTNAME}'"
-            COMPRESSION="--compression=${DEFAULT_COMPRESSION:-'zstd,9'}"
-        else
-            BACKUP_COMMENT=''
-            COMPRESSION="-C lzma"
-        fi
+        backup_comment="--comment='${vm_type} ${vm_hostname}'"
+        backup_compression="--compression=${DEFAULT_COMPRESSION:-'zstd,3'}"
 
-        say "Beginning backup of ${VM_TYPE} ${VM_ID} (${VM_HOSTNAME})"
 
-        BEFORE="$(date +%s)"
-        case $VM_TYPE in
-        CT)
-            vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${MODE} --stdout | borg create -s "${COMPRESSION}" "${BACKUP_COMMENT}" ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').tar - &>>${DETAIL_FILE}
-            ;;
-        VM)
-            vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${MODE} --stdout | borg create -s "${COMPRESSION}" "${BACKUP_COMMENT}" ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').vma - &>>${DETAIL_FILE}
-            ;;
-        esac
+        say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
+        before="$(date +%s)"
 
-        AFTER="$(date +%s)"
-        ELAPSED_SECONDS="$(expr $AFTER - $BEFORE)"
+        vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').${vm_ext} - &>>${detail_file}
+
+        after="$(date +%s)"
+        elapsed_seconds="$(expr $after - $before)"
         say "Done."
-        printf "$line_format" $VM_TYPE $VM_ID $(($ELAPSED_SECONDS / 3600)) $(($ELAPSED_SECONDS % 3600 / 60)) $(($ELAPSED_SECONDS % 60)) $VM_HOSTNAME >>${SUMMARY_FILE}
+        printf "$line_format" $vm_type $VM_ID $(($elapsed_seconds / 3600)) $(($elapsed_seconds % 3600 / 60)) $(($elapsed_seconds % 60)) $vm_hostname >>${summary_file}
     done
 
-    echo "" >>${SUMMARY_FILE}
-    say "Host $(hostname) - vzborg backup complete!" >>${SUMMARY_FILE}
-    cat ${SUMMARY_FILE}
+    echo "" >>${summary_file}
+    say "Host $(hostname) - vzborg backup complete!" >>${summary_file}
+    cat ${summary_file}
 
     # Adds detailed information
-    cat ${DETAIL_FILE} >>${SUMMARY_FILE}
+    cat ${detail_file} >>${summary_file}
 
-    mail -s "$(hostname) - vzborg backup statistics." ${NOTIFY_TO} <${SUMMARY_FILE}
-    rm ${DETAIL_FILE} ${SUMMARY_FILE}
+    mail -s "$(hostname) - vzborg backup statistics." ${NOTIFY_TO} <${summary_file}
+    rm ${detail_file} ${summary_file}
 }
 vzborg_delete() {
     if [[ ${show_command_help} = true ]]; then
@@ -400,24 +391,24 @@ vzborg_prune() {
 
     # Loop through each ID
     for VM_ID in $vm_ids; do
-        VM_TYPE=''
+        vm_type=''
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
-            VM_TYPE='CT'
-            VM_HOSTNAME="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
+            vm_type='CT'
+            vm_hostname="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
-                VM_TYPE='VM'
-                VM_HOSTNAME="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
+                vm_type='VM'
+                vm_hostname="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
             else
                 # unknown vm
-                VM_TYPE='--'
-                VM_HOSTNAME='No_Virtual_Machine_with_this_ID'
+                vm_type='--'
+                vm_hostname='No_Virtual_Machine_with_this_ID'
             fi
         fi
 
-        say "Prunning repository of backups of VM/CT ${VM_ID} (${VM_HOSTNAME})"
+        say "Prunning repository of backups of VM/CT ${VM_ID} (${vm_hostname})"
         say "using ${KEEP} retention options"
         borg prune -v --list --stats ${dry_run} ${KEEP} --prefix vzdump-${VM_ID} ${VZBORG_REPO}
     done
