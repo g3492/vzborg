@@ -117,10 +117,10 @@ vzborg_backup() {
         BEFORE="$(date +%s)"
         case $VM_TYPE in
         CT)
-            vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${MODE} --stdout | borg create -s "${COMPRESSION}" "${BACKUP_COMMENT}" ${VZBORG_REPO}::${archs_prefix}-${VkkM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').tar - &>>${DETAIL_FILE}
+            vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${MODE} --stdout | borg create -s "${COMPRESSION}" "${BACKUP_COMMENT}" ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').tar - &>>${DETAIL_FILE}
             ;;
         VM)
-            vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${MODE} --stdout | borg create -s -C lzma ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').vma - &>>${DETAIL_FILE}
+            vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${MODE} --stdout | borg create -s "${COMPRESSION}" "${BACKUP_COMMENT}" ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').vma - &>>${DETAIL_FILE}
             ;;
         esac
 
@@ -480,7 +480,7 @@ vzborg_restore() {
 
 }
 vzborg_version() {
-    echo 'vzborg 0.4.0 (alfa)'
+    echo 'vzborg 0.4.1'
     borg --version
     pveversion
     # 0.3.1 (alfa)
