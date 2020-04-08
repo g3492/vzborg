@@ -323,15 +323,15 @@ vzborg_help() {
 vzborg_info() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage: vzborg -c info [-i IDS_LISTS] \\"
+        echo "Usage: vzborg -c info [-i IDS_LISTS|all] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
         echo "Examples:"
         echo
-        echo "  List all backups in default repository:"
+        echo "  List info about default repository:"
         echo "    vzborg -c info"
         echo
-        echo "  List backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
+        echo "  List info of backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
         echo "    vzborg -c list -i 303 -r /var/lib/vz/borg"
         echo
         exit
@@ -341,12 +341,17 @@ vzborg_info() {
     local list_file="$(mktemp /tmp/vzborg.XXXXXX)"
 
     # Virtual machines IDs
+
     if ! [ -z "${vm_ids}" ]; then
-        for VM_ID in $vm_ids; do
-            borg info "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
-        done
+        if [[ ${vm_ids} = "all" ]]; then
+            borg info "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
+        else
+            for VM_ID in $vm_ids; do
+                borg info "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
+            done
+        fi
     else
-        borg info "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
+        borg info "${VZBORG_REPO}"  >${list_file}
     fi
 
     cat ${list_file}
