@@ -405,7 +405,7 @@ vzborg_prune() {
 
         say "Prunning repository of backups of VM/CT ${VM_ID} (${vm_hostname})"
         say "using ${KEEP} retention options"
-        borg prune -v --list --stats ${dry_run} ${KEEP} --prefix vzdump-${VM_ID} ${VZBORG_REPO}
+        borg prune -v --list --stats ${dry_run} ${KEEP} --prefix ${archs_prefix}-${VM_ID} ${VZBORG_REPO}
     done
     say "Prunning finished"
 
