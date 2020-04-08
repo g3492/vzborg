@@ -106,7 +106,7 @@ vzborg_backup() {
             fi
         fi
 
-        backup_comment="--comment='${vm_type} ${vm_hostname}'"
+        backup_comment="--comment=${vm_type}-${VM_ID}-${vm_hostname}"
         backup_compression="--compression=${DEFAULT_COMPRESSION:-'zstd,3'}"
 
 
