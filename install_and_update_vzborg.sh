@@ -62,7 +62,7 @@ say "Installing vzborg to /usr/local/bin"
 wget https://raw.githubusercontent.com/g3492/vzborg/master/vzborg -O /usr/local/bin/vzborg
 chmod +x /usr/local/bin/vzborg
 if [[ -f /etc/vzborg.conf ]]; then
-    say "Configuration file /etc/vzborg.conf exist."
+    say "Configuration file /etc/vzborg.conf exist. Not overwriting it"
 else
     say "Creating default configuration file (/etc/vzborg.conf)"
     wget -P /etc https://raw.githubusercontent.com/g3492/vzborg/master/vzborg.conf 
