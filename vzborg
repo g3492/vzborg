@@ -343,10 +343,10 @@ vzborg_info() {
     # Virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            borg list "${borg_format}" "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
+            borg info "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
         done
     else
-        borg list "${borg_format}" "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
+        borg info "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
     fi
 
     cat ${list_file}
