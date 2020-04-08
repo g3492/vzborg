@@ -106,7 +106,7 @@ vzborg_backup() {
             fi
         fi
 
-        backup_comment="--comment=${vm_type}-${VM_ID}-${vm_hostname}"
+        backup_comment="--comment=${vm_type} ${VM_ID} ${vm_hostname}"
         backup_compression="--compression=${DEFAULT_COMPRESSION:-'zstd,3'}"
 
 
@@ -336,14 +336,9 @@ vzborg_list() {
         echo
         exit
     fi
-
-    local list_format=${DEFAULT_LIST_FORMAT:-'{archive}  (host: {hostname}){NL}'}
-
-    if version_greater_equal "${borg_version}" 1.1.0; then
-        local borg_format="--format=${list_format}"
-    else
-        local borg_format="--list-format=${list_format}"
-    fi
+    # Set a default list format 
+    local list_format='{archive}{SPACE}{comment}{SPACE}{hostname}{NL}'
+    local borg_format="--format=${list_format}"
 
     local list_file="$(mktemp /tmp/vzborg.XXXXXX)"
 
