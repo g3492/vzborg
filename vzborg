@@ -320,6 +320,38 @@ vzborg_help() {
     echo "  or for a qemu guest:"
     echo "    vzborg-303-2020_03_27-14_10_12.vma"
 }
+vzborg_info() {
+    if [[ ${show_command_help} = true ]]; then
+        echo
+        echo "Usage: vzborg -c info [-i IDS_LISTS] \\"
+        echo "                   [-r BORG_REPOSITORY]"
+        echo
+        echo "Examples:"
+        echo
+        echo "  List all backups in default repository:"
+        echo "    vzborg -c info"
+        echo
+        echo "  List backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
+        echo "    vzborg -c list -i 303 -r /var/lib/vz/borg"
+        echo
+        exit
+    fi
+    # Set a default list format 
+
+    local list_file="$(mktemp /tmp/vzborg.XXXXXX)"
+
+    # Virtual machines IDs
+    if ! [ -z "${vm_ids}" ]; then
+        for VM_ID in $vm_ids; do
+            borg list "${borg_format}" "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
+        done
+    else
+        borg list "${borg_format}" "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
+    fi
+
+    cat ${list_file}
+    rm ${list_file}
+}
 vzborg_list() {
     if [[ ${show_command_help} = true ]]; then
         echo
@@ -569,6 +601,7 @@ delete) vzborg_delete ;;
 discard) vzborg_discard ;;
 restore) vzborg_restore ;;
 list) vzborg_list ;;
+info) vzborg_info ;;
 prune) vzborg_prune ;;
 getdump) vzborg_getdump ;;
 help) vzborg_help ;;
