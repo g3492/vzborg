@@ -178,7 +178,7 @@ vzborg_discard() {
         echo "Examples:"
         echo
         echo "  Discard all backups of VM/CT with Ids 123, 124 and 201 in default repository:"
-        echo "    vzborg -c discard -i 123 124 201"
+        echo "    vzborg -c discard -i '123 124 201'"
         echo
         echo "  Discard (remove) all backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
         echo "    vzborg -c discard -i 303 -r /var/lib/vz/borg"
@@ -187,16 +187,12 @@ vzborg_discard() {
     fi
 
     local archives=''
-    if version_greater_equal "${borg_version}" 1.1.0; then
-        local borg_format="--format={archive}{NL}"
-    else
-        local borg_format="--list-format={archive}{NL}"
-    fi
+    local borg_format='--format={archive}{SPACE}'
 
     # Process virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            archives=$(borg list ${borg_format} "${VZBORG_REPO}" -P ${archs_prefix}-${VM_ID} | awk '{print $1}' | tr '\n' ' ')
+            archives=$(borg list ${borg_format} "${VZBORG_REPO}" -P ${archs_prefix}-${VM_ID})
             say "Discarding backups of guest ${VM_ID}"
             for archive in $archives; do
                 say "- Deleting ${archive}"
