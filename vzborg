@@ -1,5 +1,8 @@
 #!/usr/bin/env bash
 # vim: set filetype=sh :
+
+# BASH SETTINGS
+
 # Make the script exit when a command fails (set -e).
 set -o errexit
 # Make the script exit when tries to use undeclared variables (set -u)
@@ -7,7 +10,6 @@ set -o nounset
 # Exit on pipe fail
 set -o pipefail
 # set -o xtrace
-
 
 # LOAD DEFAULT VARIABLES FROM CONF FILE
 . /etc/vzborg.conf
@@ -54,10 +56,9 @@ vzborg_backup() {
         exit
     fi
 
-    local mode=${VZDUMP_MODE:-snapshot}
     local detail_file="$(mktemp /tmp/vzborg.XXXXXX)"
     local summary_file="$(mktemp /tmp/vzborg.XXXXXX)"
-    local backup_compression="--compression=${DEFAULT_COMPRESSION:-'zstd,3'}"
+    local backup_compression="--compression=${default_compression}"
     local backup_comment=''
     local backup_name=''
     local vm_type=''
@@ -74,14 +75,14 @@ vzborg_backup() {
         vm_ids="$(pct list | awk '{print $1}' | grep -v ID | tr '\n' ' ') $(qm list | awk '{print $1}' | grep -v ID | tr '\n' ' ')"
     fi
 
-    if [[ ! ${VZBORG_REPO} == *@* ]]; then
+    if [[ ! ${vzborg_repo} == *@* ]]; then
         # Not a remote repo
         # Create the borg repository if the repository does not exist
-        if [ ! -d ${VZBORG_REPO} ]; then
-            mkdir -p ${VZBORG_REPO}
-            borg init --encryption=${ENCRYPTION_MODE} ${VZBORG_REPO}
+        if [ ! -d ${vzborg_repo} ]; then
+            mkdir -p ${vzborg_repo}
+            borg init --encryption=${encryption_mode} ${vzborg_repo}
 
-            echo "Borg repository ${VZBORG_REPO} with encryption ${ENCRYPTION_MODE} created" >>${detail_file}
+            echo "Borg repository ${vzborg_repo} with encryption ${encryption_mode} created" >>${detail_file}
             echo "---------------------------" >>${detail_file}
             echo '' >>${detail_file}
         fi
@@ -119,9 +120,9 @@ vzborg_backup() {
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
         before="$(date +%s)"
 
-        vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${VZBORG_REPO}::${backup_name}.tmp - &>>${detail_file}
+        vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${vzborg_repo}::${backup_name}.tmp - &>>${detail_file}
         # rename temporary archive
-        borg rename ${VZBORG_REPO}::${backup_name}.tmp ${backup_name}
+        borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
         after="$(date +%s)"
         elapsed_seconds="$(expr $after - $before)"
         say "Done."
@@ -157,17 +158,17 @@ vzborg_delete() {
         exit
     fi
 
-    local BORG_ARCHIVE=${BACKUP_NAME}
-
-    case ${BORG_ARCHIVE} in
-    *.tar) DUMP_TYPE='lxc' ;;
-    *.vma) DUMP_TYPE='qemu' ;;
-    *) die "Option -b \"${BORG_ARCHIVE}\" is not a valid backup name" ;;
+    local borg_archive=${backup_name}
+    local dump_type=''
+    case ${borg_archive} in
+    *.tar) dump_type='lxc' ;;
+    *.vma) dump_type='qemu' ;;
+    *) die "Option -b \"${borg_archive}\" is not a valid backup name" ;;
     esac
-    # TODO Check if archive BORG_ARCHIVE exist in borg repo.
+    # TODO Check if archive borg_archive exist in borg repo.
 
-    say "Deleting backup ${BORG_ARCHIVE} from repository"
-    borg delete ${VZBORG_REPO}::${BORG_ARCHIVE}
+    say "Deleting backup ${borg_archive} from repository"
+    borg delete ${vzborg_repo}::${borg_archive}
 }
 vzborg_discard() {
     if [[ ${show_command_help} = true ]]; then
@@ -192,11 +193,11 @@ vzborg_discard() {
     # Process virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            archives=$(borg list ${borg_format} "${VZBORG_REPO}" -P ${archs_prefix}-${VM_ID})
+            archives=$(borg list ${borg_format} "${vzborg_repo}" -P ${archs_prefix}-${VM_ID})
             say "Discarding backups of guest ${VM_ID}"
             for archive in $archives; do
                 say "- Deleting ${archive}"
-                borg delete "${VZBORG_REPO}::${archive}"
+                borg delete "${vzborg_repo}::${archive}"
             done
         done
     fi
@@ -224,35 +225,40 @@ vzborg_getdump() {
         exit
     fi
 
-    local DUMP_STORAGE=${PVE_STORAGE:-local}
-    local BORG_ARCHIVE=${BACKUP_NAME}
+    local dump_storage=${pve_storage:-local}
+    local borg_archive=${backup_name}
+    local dump_type=''
+    local compression_level=''
+    local dump_file=''
+    local dump_dir=''
+    local storage_content=''
 
-    case ${BORG_ARCHIVE} in
-    *.tar) DUMP_TYPE='lxc' ;;
-    *.vma) DUMP_TYPE='qemu' ;;
-    *) die "Option -b \"${BORG_ARCHIVE}\" is not a valid backup name" ;;
+    case ${borg_archive} in
+    *.tar) dump_type='lxc' ;;
+    *.vma) dump_type='qemu' ;;
+    *) die "Option -b \"${borg_archive}\" is not a valid backup name" ;;
     esac
-    # TODO Check if archive BORG_ARCHIVE exist in borg repo.
+    # TODO Check if archive borg_archive exist in borg repo.
 
     #  Recreate normal proxmox backup file name (add qemu/lxc type to file name)
-    DUMP_FILE=${BORG_ARCHIVE/${archs_prefix}/vzdump-${DUMP_TYPE}}
+    dump_file=${borg_archive/${archs_prefix}/vzdump-${dump_type}}
 
     # Set default compression level
-    case ${DUMP_TYPE} in
-    qemu) COMPRESSION_LEVEL=3 ;;
-    lxc) COMPRESSION_LEVEL=7 ;;
+    case ${dump_type} in
+    qemu) compression_level=3 ;;
+    lxc) compression_level=7 ;;
     esac
 
-    STORAGE_CONTENT=$(grep -A 99999 ${DUMP_STORAGE} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
-    if [[ ! "$STORAGE_CONTENT" == *backup* ]]; then
-        die "Storage \"${DUMP_STORAGE}\" is not a backup storage"
+    storage_content=$(grep -A 99999 ${dump_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
+    if [[ ! "$storage_content" == *backup* ]]; then
+        die "Storage \"${dump_storage}\" is not a backup storage"
     fi
 
     # Get dumps directory from storage configuration file
-    DUMP_DIR=$(grep -A 99999 ${DUMP_STORAGE} /etc/pve/storage.cfg | grep -m1 path | sed -n -e 's/^.*path //p')/dump
+    dump_dir=$(grep -A 99999 ${dump_storage} /etc/pve/storage.cfg | grep -m1 path | sed -n -e 's/^.*path //p')/dump
 
-    say "Recreating dump file ${DUMP_FILE}.lzo into ${DUMP_STORAGE} storage"
-    borg extract --stdout ${VZBORG_REPO}::${BORG_ARCHIVE} | lzop -${COMPRESSION_LEVEL} --output=${DUMP_DIR}/${DUMP_FILE}.lzo -
+    say "Recreating dump file ${dump_file}.lzo into ${dump_storage} storage"
+    borg extract --stdout ${vzborg_repo}::${borg_archive} | lzop -${compression_level} --output=${dump_dir}/${dump_file}.lzo -
     say "Recreation finished"
 
 }
@@ -272,10 +278,13 @@ vzborg_help() {
     echo "             discard  Discard all backups of given guests."
     echo "             getdump  Recreate a dump files from a backup."
     echo "             help     Show this help."
+    echo "             info     Show info about repository or backup"
     echo "             list     List backups in repository."
     echo "             prune    Prune borg repository."
     echo "             restore  Restore backup from repository."
     echo "             version  Show vzborg, borg and pve version."
+    echo
+    echo "  Use \"vzborg -c COMMAND -h\" to get help about a command"
     echo
     echo "Additional options"
     echo
@@ -347,14 +356,14 @@ vzborg_info() {
 
     if ! [ -z "${vm_ids}" ]; then
         if [[ ${vm_ids} = "all" ]]; then
-            borg info "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
+            borg info "${vzborg_repo}" -P ${archs_prefix}- >${list_file}
         else
             for VM_ID in $vm_ids; do
-                borg info "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
+                borg info "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
             done
         fi
     else
-        borg info "${VZBORG_REPO}"  >${list_file}
+        borg info "${vzborg_repo}"  >${list_file}
     fi
 
     cat ${list_file}
@@ -385,10 +394,10 @@ vzborg_list() {
     # Virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            borg list "${borg_format}" "${VZBORG_REPO}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
+            borg list "${borg_format}" "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
         done
     else
-        borg list "${borg_format}" "${VZBORG_REPO}" -P ${archs_prefix}- >${list_file}
+        borg list "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >${list_file}
     fi
 
     cat ${list_file} | sort
@@ -417,7 +426,7 @@ vzborg_prune() {
         exit
     fi
 
-    local KEEP=${KEEP_SETTINGS:-$DEFAULT_KEEP}
+    local retention=${keep_setting:-$DEFAULT_KEEP}
 
     # Prune all backups
     if [[ $vm_ids = "all" ]]; then
@@ -444,8 +453,8 @@ vzborg_prune() {
         fi
 
         say "Prunning repository of backups of VM/CT ${VM_ID} (${vm_hostname})"
-        say "using ${KEEP} retention options"
-        borg prune -v --list --stats ${dry_run} ${KEEP} --prefix ${archs_prefix}-${VM_ID} ${VZBORG_REPO}
+        say "using ${retention} retention options"
+        borg prune -v --list --stats ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo}
     done
     say "Prunning finished"
 
@@ -456,7 +465,7 @@ vzborg_restore() {
         echo "Usage:"
         echo "  vzborg -c restore -b BACKUP_NAME -i PVE_ID_FOR_RESTORE \\"
         echo "                   [-r BORG_REPOSITORY_PATH] \\"
-        echo "                   [-s PVE_STORAGE] [-f]"
+        echo "                   [-s pve_storage] [-f]"
         echo
         echo "Examples:"
         echo
@@ -474,34 +483,35 @@ vzborg_restore() {
         exit
     fi
 
-    local RESTORE_STORAGE=${PVE_STORAGE:-local}
-    local BORG_ARCHIVE=${BACKUP_NAME}
-    local RESTORE_ID=${vm_ids:-0}
+    local restore_storage=${pve_storage:-local}
+    local borg_archive=${backup_name}
+    local restore_id=${vm_ids:-0}
+    local vm_type=''
 
     # Get storage allowed content
-    STORAGE_CONTENT=$(grep -A 99999 ${RESTORE_STORAGE} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
+    storage_content=$(grep -A 99999 ${restore_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
 
-    if [[ ! "$STORAGE_CONTENT" == *images* ]]; then
-        die "Storage \"${RESTORE_STORAGE}\" is not an images storage"
+    if [[ ! "$storage_content" == *images* ]]; then
+        die "Storage \"${restore_storage}\" is not an images storage"
     fi
 
-    case ${BORG_ARCHIVE} in
-    *.tar) BACKUP_TYPE='CT' ;;
-    *.vma) BACKUP_TYPE='VM' ;;
-    *) die "Option -b \"${BORG_ARCHIVE}\" is not a qemu or lxc valid backup file name" ;;
+    case ${borg_archive} in
+    *.tar) vm_type='CT' ;;
+    *.vma) vm_type='VM' ;;
+    *) die "Option -b \"${borg_archive}\" is not a qemu or lxc valid backup file name" ;;
     esac
-    # TODO Check if archive BORG_ARCHIVE exist in borg repo.
+    # TODO Check if archive borg_archive exist in borg repo.
 
-    if ((${RESTORE_ID} >= 101 && ${RESTORE_ID} <= 999999999)); then
-        say "Restoring vzdump backup file ${BORG_ARCHIVE} as ${BACKUP_TYPE} ${RESTORE_ID} to storage ${RESTORE_STORAGE}"
-        if [[ ${BACKUP_TYPE} == 'VM' ]]; then
-            borg extract --stdout ${VZBORG_REPO}::${BORG_ARCHIVE} | qmrestore - ${RESTORE_ID} --storage ${RESTORE_STORAGE} ${force_overwrite}
+    if ((${restore_id} >= 101 && ${restore_id} <= 999999999)); then
+        say "Restoring vzdump backup file ${borg_archive} as ${vm_type} ${restore_id} to storage ${restore_storage}"
+        if [[ ${vm_type} == 'VM' ]]; then
+            borg extract --stdout ${vzborg_repo}::${borg_archive} | qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}
         else
-            borg extract --stdout ${VZBORG_REPO}::${BORG_ARCHIVE} | pct restore ${RESTORE_ID} --storage ${RESTORE_STORAGE} ${force_overwrite} --rootfs 8 --unprivileged 0 -
+            borg extract --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs 8 --unprivileged 0 -
         fi
         say "Restore finished"
     else
-        die "Option -i \"${RESTORE_ID}\" is not a valid VM/CT ID"
+        die "Option -i \"${restore_id}\" is not a valid VM/CT ID"
     fi
 
 }
@@ -534,12 +544,17 @@ vzborg_version() {
 # VZBORG BODY
 
 # variables initialization
+
+# Name prefix for all backups
 readonly archs_prefix=vzborg
+
 show_command_help=false
 vm_ids=''
 vzborg_command=''
 force_overwrite=''
 dry_run=''
+vzdump_mode='snapshot'
+
 # Containers configuration directory
 ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
 # Qemu virtual machines configuration directory
@@ -547,18 +562,26 @@ vm_conf_dir="/etc/pve/nodes/`hostname`/qemu-server/"
 # printf formats for backups times
 header_format="\n%2s  %5s  %8s  %-42s\n"
 line_format="%2s  %5s  %02d:%02d:%02d  %-42s\n"
+
+# Assign defaults to vzdump.conf variables
+vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
+encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
+default_compression=${DEFAULT_COMPRESSION:-'zstd,3'}
+default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'}
+
 # if VZBORG_PASSPHRASE is defined export it as Borg BORG_PASSPHRASE
 if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
     export BORG_PASSPHRASE="${VZBORG_PASSPHRASE}"
 fi
+
 # Get borg version
 borg_version="$(borg -V | cut -d' ' -f2)"
 
-# Option parser
+# Options parser
 while [ $# -gt 0 ]; do
     case "$1" in
     -b | --backup)
-        BACKUP_NAME="$2"
+        backup_name="$2"
         shift 2
         ;;
     -c | --command)
@@ -582,19 +605,19 @@ while [ $# -gt 0 ]; do
         shift 2
         ;;
     -k | --keep)
-        VZDUMP_MODE="$2"
+        keep_setting="$2"
         shift 2
         ;;
     -m | --mode)
-        KEEP_SETTINGS="$2"
+        vzdump_mode="$2"
         shift 2
         ;;
     -r | --repository)
-        VZBORG_REPO="$2"
+        vzborg_repo="$2"
         shift 2
         ;;
     -s | --storage)
-        PVE_STORAGE="$2"
+        pve_storage="$2"
         shift 2
         ;;
     *)
