@@ -57,6 +57,12 @@ vzborg_backup() {
     local mode=${VZDUMP_MODE:-snapshot}
     local detail_file="$(mktemp /tmp/vzborg.XXXXXX)"
     local summary_file="$(mktemp /tmp/vzborg.XXXXXX)"
+    local backup_compression="--compression=${DEFAULT_COMPRESSION:-'zstd,3'}"
+    local backup_comment=''
+    local backup_name=''
+    local vm_type=''
+    local vm_ext=''
+    local vm_hostname=''
 
     echo '' >>${detail_file}
     echo "DETAILED BACKUP INFORMATION" >>${detail_file}
@@ -87,7 +93,6 @@ vzborg_backup() {
 
     # Loop through each ID
     for VM_ID in $vm_ids; do
-        vm_type=''
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
             vm_type='CT'
@@ -108,14 +113,15 @@ vzborg_backup() {
         fi
 
         backup_comment="--comment=${vm_type} ${VM_ID} ${vm_hostname}"
-        backup_compression="--compression=${DEFAULT_COMPRESSION:-'zstd,3'}"
+        backup_name="${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').${vm_ext}"
 
 
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
         before="$(date +%s)"
 
-        vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${VZBORG_REPO}::${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').${vm_ext} - &>>${detail_file}
-
+        vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${VZBORG_REPO}::${backup_name}.tmp - &>>${detail_file}
+        # rename temporary archive
+        borg rename ${VZBORG_REPO}::${backup_name}.tmp ${VZBORG_REPO}::${backup_name}
         after="$(date +%s)"
         elapsed_seconds="$(expr $after - $before)"
         say "Done."
