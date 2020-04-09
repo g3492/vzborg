@@ -158,15 +158,15 @@ vzborg_delete() {
     *.vma) DUMP_TYPE='qemu' ;;
     *) die "Option -b \"${BORG_ARCHIVE}\" is not a valid backup name" ;;
     esac
-    # TODO Check if archive BORG_ARCHIVE exist in borg repo. The check may be done in getopts while case.
+    # TODO Check if archive BORG_ARCHIVE exist in borg repo.
 
-    say "Delting backup ${BORG_ARCHIVE} from repository"
+    say "Deleting backup ${BORG_ARCHIVE} from repository"
     borg delete ${VZBORG_REPO}::${BORG_ARCHIVE}
 }
 vzborg_discard() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage: vzborg -c ddiscard [-i IDS_LISTS] \\"
+        echo "Usage: vzborg -c discard [-i IDS_LISTS] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
         echo "Examples:"
@@ -230,7 +230,7 @@ vzborg_getdump() {
     *.vma) DUMP_TYPE='qemu' ;;
     *) die "Option -b \"${BORG_ARCHIVE}\" is not a valid backup name" ;;
     esac
-    # TODO Check if archive BORG_ARCHIVE exist in borg repo. The check may be done in getopts while case.
+    # TODO Check if archive BORG_ARCHIVE exist in borg repo.
 
     #  Recreate normal proxmox backup file name (add qemu/lxc type to file name)
     DUMP_FILE=${BORG_ARCHIVE/${archs_prefix}/vzdump-${DUMP_TYPE}}
@@ -259,7 +259,7 @@ vzborg_help() {
     echo
     echo "  vzborg [OPTIONS]"
     echo
-    echo "  vzborg only uses options as parameters. Spcecified, but not used options are ignored"
+    echo "  vzborg only uses options as parameters. Specified, but not used options are ignored"
     echo
     echo "Required option:"
     echo
@@ -275,7 +275,7 @@ vzborg_help() {
     echo "             restore  Restore backup from repository."
     echo "             version  Show vzborg, borg and pve version."
     echo
-    echo "Aditional options"
+    echo "Additional options"
     echo
     echo "  -b BACKUP      - Name of an existing backup (archive)."
     echo "                   use: delete|restore"
@@ -488,7 +488,7 @@ vzborg_restore() {
     *.vma) BACKUP_TYPE='VM' ;;
     *) die "Option -b \"${BORG_ARCHIVE}\" is not a qemu or lxc valid backup file name" ;;
     esac
-    # TODO Check if archive BORG_ARCHIVE exist in borg repo. The check may be done in getopts while case.
+    # TODO Check if archive BORG_ARCHIVE exist in borg repo.
 
     if ((${RESTORE_ID} >= 101 && ${RESTORE_ID} <= 999999999)); then
         say "Restoring vzdump backup file ${BORG_ARCHIVE} as ${BACKUP_TYPE} ${RESTORE_ID} to storage ${RESTORE_STORAGE}"
