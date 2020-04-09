@@ -188,9 +188,9 @@ vzborg_discard() {
 
     local archives=''
     if version_greater_equal "${borg_version}" 1.1.0; then
-        local borg_format="--format='{archive}{SPACE}'"
+        local borg_format="--format={archive}{SPACE}"
     else
-        local borg_format="--list-format='{archive}{SPACE}'"
+        local borg_format="--list-format={archive}{SPACE}"
     fi
 
     # Process virtual machines IDs
