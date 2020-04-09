@@ -121,7 +121,7 @@ vzborg_backup() {
 
         vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${VZBORG_REPO}::${backup_name}.tmp - &>>${detail_file}
         # rename temporary archive
-        borg rename ${VZBORG_REPO}::${backup_name}.tmp ${VZBORG_REPO}::${backup_name}
+        borg rename ${VZBORG_REPO}::${backup_name}.tmp ${backup_name}
         after="$(date +%s)"
         elapsed_seconds="$(expr $after - $before)"
         say "Done."
@@ -188,9 +188,9 @@ vzborg_discard() {
 
     local archives=''
     if version_greater_equal "${borg_version}" 1.1.0; then
-        local borg_format="--format={archive}{SPACE}"
+        local borg_format="--format={archive}{NL}"
     else
-        local borg_format="--list-format={archive}{SPACE}"
+        local borg_format="--list-format={archive}{NL}"
     fi
 
     # Process virtual machines IDs
