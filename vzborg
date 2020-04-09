@@ -103,6 +103,7 @@ vzborg_backup() {
                 # unknown vm
                 vm_type='--'
                 vm_hostname='No_Virtual_Machine_with_this_ID'
+                continue
             fi
         fi
 
@@ -540,7 +541,7 @@ dry_run=''
 # Containers configuration directory
 ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
 # Qemu virtual machines configuration directory
-vm_conf_dir="/eetc/pve/nodes/`hostname`/qemu-server/"
+vm_conf_dir="/etc/pve/nodes/`hostname`/qemu-server/"
 # printf formats for backups times
 header_format="\n%2s  %5s  %8s  %-42s\n"
 line_format="%2s  %5s  %02d:%02d:%02d  %-42s\n"
