@@ -52,14 +52,21 @@ Where COMMAND is one of:
 |  discard  |Discard all backups of given guests.|
 |  getdump  |Recreate a dump file from a backup. |
 |  help     |Show Vzborg help.                   |
+|  info     |Show repository or backups info     |
 |  list     |List backups in a repository.       |
 |  prune    |Prune (purge) a repository.         | 
 |  restore  |Restore backup from a repository.   |
 |  version  |Show Vzborg, Borg and PVE versions. |
             
-Example:
+Examples:
 
 `vzborg -c list`
+
+List backups in repository
+
+`vzborg -c backup -i 121`
+
+Backup guest with ID 121
 
 ### Additional options
 | Option          | Value      |Use with commands       |Description                             |
