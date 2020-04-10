@@ -34,7 +34,28 @@ debug() {
 version_greater_equal() {
     printf '%s\n%s\n' "$2" "$1" | sort -V -C
 }
+conn_dict() {
+	# return a definition of a bash dictionary, with the components of a connection string
+	# warning: supports only full remote paths. Relative or home based paths will not work
+	local connection_str=${1}
+	# extract the protocol
+	local proto="$(echo $connection_str | grep :// | sed -e's,^\(.*://\).*,\1,g')"
+	# remove the protocol
+	local url=${connection_str/$proto/}
+	# extract the user (if any)
+	local user="$(echo $url | grep @ | cut -d@ -f1)"
+	# extract the host and port
+	local hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
+	# extract host without port    
+	local host="$(echo $hostport | sed -e 's,:.*,,g')"
+	# try to extract the port
+	local port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
+	# extract the path (if any)
+	local path=/"$(echo $url | grep / | cut -d/ -f2-)"
 
+	
+	echo "([url]=${url} [proto]=${proto} [user]=${user} [host]=${host} [port]=${port} [path]=${path})"
+}
 # VZBORG FUNCTIONS
 
 vzborg_backup() {
@@ -76,10 +97,25 @@ vzborg_backup() {
     fi
 
     if [[ ! ${vzborg_repo} == *@* ]]; then
-        # Not a remote repo
+        # Not a remote repository
         # Create the borg repository if the repository does not exist
         if [ ! -d ${vzborg_repo} ]; then
             mkdir -p ${vzborg_repo}
+            borg init --encryption=${encryption_mode} ${vzborg_repo}
+
+            echo "Borg repository ${vzborg_repo} with encryption ${encryption_mode} created" >>${detail_file}
+            echo "---------------------------" >>${detail_file}
+            echo '' >>${detail_file}
+        fi
+    else
+        # it is a remote repository
+        # extract connection components with conn_dict function
+        declare -A conn_="$(conn_dict ${vzborg_repo})"
+        local ssh_port=${conn_[port]:-22}
+
+        if ! ssh -p ${ssh_port} ${conn_[user]}@${conn_[host]} "[ -d ${conn_[path]} ]"; then
+            # remote repository does not exist. Create it
+            ssh -p ${ssh_port} ${conn_[user]}@${conn_[host]} "mkdir -p ${conn_[path]}"
             borg init --encryption=${encryption_mode} ${vzborg_repo}
 
             echo "Borg repository ${vzborg_repo} with encryption ${encryption_mode} created" >>${detail_file}
@@ -263,28 +299,31 @@ vzborg_getdump() {
 
 }
 vzborg_help() {
+    echo
     echo "Usage:"
     echo
     echo "  vzborg [OPTIONS]"
     echo
-    echo "  vzborg only uses options as parameters. Specified, but not used options are ignored"
+    echo "  Vzborg only uses options. Specified, but not used options are ignored"
     echo
     echo "Required option:"
     echo
-    echo "  -c COMMAND <string>     vzborg command to execute. One of:"
+    echo "  -c COMMAND  where COMMAND is the Vzborg command to execute"
+    echo 
+    echo "     COMMAND  Description"
+    echo 
+    echo "     backup   Perform a backup job."
+    echo "     delete   Delete a specific backup."
+    echo "     discard  Discard all backups of given guests."
+    echo "     getdump  Recreate a dump files from a backup."
+    echo "     help     Show this help."
+    echo "     info     Show info about repository or backup"
+    echo "     list     List backups in repository."
+    echo "     prune    Prune borg repository."
+    echo "     restore  Restore backup from repository."
+    echo "     version  Show vzborg, borg and pve version."
     echo
-    echo "             backup   Perform a backup job."
-    echo "             delete   Delete a specific backup."
-    echo "             discard  Discard all backups of given guests."
-    echo "             getdump  Recreate a dump files from a backup."
-    echo "             help     Show this help."
-    echo "             info     Show info about repository or backup"
-    echo "             list     List backups in repository."
-    echo "             prune    Prune borg repository."
-    echo "             restore  Restore backup from repository."
-    echo "             version  Show vzborg, borg and pve version."
-    echo
-    echo "  Use \"vzborg -c COMMAND -h\" to get help about a command"
+    echo "  Hint: Use \"vzborg -c COMMAND -h\" to get specific help about a command"
     echo
     echo "Additional options"
     echo
@@ -295,7 +334,7 @@ vzborg_help() {
     echo "  -f             - Force overwrite of existing VM/CT"
     echo "                   use: restore"
     echo "  -h             - Display command help. Requires -c option."
-    echo "                   use: all commands"
+    echo "                   use: all except help and version"
     echo "  -i IDS         - PVE VM/CT ID or list of PVE VM/CT IDs"
     echo "                   use: backup|discard|list"
     echo "  -k KEEP        - List of borg keep settings retention options."
@@ -303,7 +342,7 @@ vzborg_help() {
     echo "  -m MODE        - vzdump mode < snapshot|stop|suspend > (default = snapshot)."
     echo "                   use: backup"
     echo "  -r REPOSITORY  - Borg repository path."
-    echo "                   use: backup|getdump|list|restore"
+    echo "                   use: all except help and version"
     echo "  -s STORAGE     - Proxmox storage (default = local)"
     echo "                   use: getdump|restore"
     echo
@@ -372,7 +411,7 @@ vzborg_info() {
 vzborg_list() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage: vzborg -c list [-i IDS_LISTS] \\"
+        echo "Usage: vzborg -c list [-i VMID|VMIDS_LIST] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
         echo "Examples:"
