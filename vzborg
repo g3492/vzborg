@@ -156,7 +156,7 @@ vzborg_backup() {
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
         before="$(date +%s)"
 
-        vzdump ${VM_ID} --dumpdir /var/lib/vz/dump --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${vzborg_repo}::${backup_name}.tmp - &>>${detail_file}
+        vzdump ${VM_ID} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${vzborg_repo}::${backup_name}.tmp - &>>${detail_file}
         # rename temporary archive
         borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
         after="$(date +%s)"
@@ -199,6 +199,7 @@ vzborg_delete() {
     case ${borg_archive} in
     *.tar) dump_type='lxc' ;;
     *.vma) dump_type='qemu' ;;
+    *.tmp) dump_type='tmp' ;;
     *) die "Option -b \"${borg_archive}\" is not a valid backup name" ;;
     esac
     # TODO Check if archive borg_archive exist in borg repo.
@@ -593,6 +594,8 @@ vzborg_command=''
 force_overwrite=''
 dry_run=''
 vzdump_mode='snapshot'
+# set vzdump default quiet value
+vzdump_quiet=0
 
 # Containers configuration directory
 ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
