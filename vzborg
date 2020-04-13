@@ -85,6 +85,7 @@ vzborg_backup() {
     local vm_type=''
     local vm_ext=''
     local vm_hostname=''
+    local backup_status=''
 
     echo '' >>${detail_file}
     echo "DETAILED BACKUP INFORMATION" >>${detail_file}
@@ -123,12 +124,11 @@ vzborg_backup() {
             echo '' >>${detail_file}
         fi
     fi
-    say "Host $(hostname) - vzborg backup started." >>${summary_file}
-    say "Host $(hostname) - Virtual machines: $vm_ids" >>${summary_file}
+    say "Host $(hostname) - vzborg backup started for VM $vm_ids." >>${summary_file}
 
-    printf "$header_format" "TY" "VMID" "TIME" "NAME" >>${summary_file}
+    printf "$header_format" "TY" "VMID" "TIME" "STATUS" "NAME" >>${summary_file}
 
-    # Loop through each ID
+    # Loop through each VM ID
     for VM_ID in $vm_ids; do
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
@@ -145,6 +145,8 @@ vzborg_backup() {
                 # unknown vm
                 vm_type='--'
                 vm_hostname='No_Virtual_Machine_with_this_ID'
+                backup_status='failed'
+                printf "$line_format" $vm_type $VM_ID 0 0 0 $backup_status $vm_hostname >>${summary_file}
                 continue
             fi
         fi
@@ -156,13 +158,18 @@ vzborg_backup() {
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
         before="$(date +%s)"
 
-        vzdump ${VM_ID} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${vzborg_repo}::${backup_name}.tmp - &>>${detail_file}
-        # rename temporary archive
-        borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
+        if vzdump ${VM_ID} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${vzborg_repo}::${backup_name}.tmp - &>>${detail_file}; then
+            # rename temporary archive
+            borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
+            backup_status='ok'
+        else
+            backup_status='failed'
+        fi
+
         after="$(date +%s)"
         elapsed_seconds="$(expr $after - $before)"
         say "Done."
-        printf "$line_format" $vm_type $VM_ID $(($elapsed_seconds / 3600)) $(($elapsed_seconds % 3600 / 60)) $(($elapsed_seconds % 60)) $vm_hostname >>${summary_file}
+        printf "$line_format" $vm_type $VM_ID $(($elapsed_seconds / 3600)) $(($elapsed_seconds % 3600 / 60)) $(($elapsed_seconds % 60)) $backup_status $vm_hostname >>${summary_file}
     done
 
     echo "" >>${summary_file}
@@ -556,7 +563,7 @@ vzborg_restore() {
 
 }
 vzborg_version() {
-    echo 'vzborg 0.4.1'
+    echo 'vzborg 0.4.2'
     borg --version
     pveversion
     # 0.3.1 (alfa)
@@ -595,15 +602,15 @@ force_overwrite=''
 dry_run=''
 vzdump_mode='snapshot'
 # set vzdump default quiet value
-vzdump_quiet=0
+vzdump_quiet=1
 
 # Containers configuration directory
 ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
 # Qemu virtual machines configuration directory
 vm_conf_dir="/etc/pve/nodes/`hostname`/qemu-server/"
 # printf formats for backups times
-header_format="\n%2s  %5s  %8s  %-42s\n"
-line_format="%2s  %5s  %02d:%02d:%02d  %-42s\n"
+header_format="\n%2s  %5s  %8s  %5s  %-42s\n"
+line_format="%2s  %5s  %02d:%02d:%02d  %5s  %-42s\n"
 
 # Assign defaults to vzdump.conf variables
 vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
