@@ -109,7 +109,7 @@ Show help about restore command.
 
 `vzborg -c backup -i '101 102 307'`
 
-Backup guests 101, 102 and 307 with default mode snapshot, to hte default repository.
+Backup guests 101, 102 and 307 with default mode snapshot, to the default repository.
 
 `vzborg -c restore -b vzborg-300-2020_03_20-13_11_46.vma -i 1300 -s local_lvm`
 
@@ -125,7 +125,7 @@ List all backups of guest with ID 303 existing on remote repository ssh://exampl
 
 `vzborg -c list -i '1230 1040 2077' -r /mnt/vzborg`
 
-List all backups of guests with IDs 12030, 1040 and 2077 existing in local repository /mnt/vzborg
+List all backups of guests with IDs 1230, 1040 and 2077 existing in local repository /mnt/vzborg
 
 
 `vzborg -c getdump -b vzborg-13998-2020_03_20-13_08_35.tar -s backups`
