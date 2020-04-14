@@ -134,13 +134,13 @@ vzborg_backup() {
             #   Is a container
             vm_type='CT'
             vm_ext='tar'
-            vm_hostname="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
+            vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
                 vm_type='VM'
                 vm_ext='vma'
-                vm_hostname="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
+                vm_hostname="$(grep -m 1 ^name ${vm_conf_dir}${VM_ID}.conf | awk '{print $2}')"
             else
                 # unknown vm
                 vm_type='--'
@@ -441,10 +441,10 @@ vzborg_list() {
     # Virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            borg list "${borg_format}" "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
+            borg list "${borg_format}" "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >>${list_file}
         done
     else
-        borg list "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >${list_file}
+        borg list "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >>${list_file}
     fi
 
     cat ${list_file} | sort
