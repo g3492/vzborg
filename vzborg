@@ -95,7 +95,13 @@ vzborg_backup() {
 
     # Virtual machines IDs
     if [[ $vm_ids = "all" ]]; then
-        vm_ids="$(pct list | awk '{print $1}' | grep -v ID | tr '\n' ' ') $(qm list | awk '{print $1}' | grep -v ID | tr '\n' ' ')"
+        # containers ids
+        local ctids="$(pct list | awk '{print $1}' | grep -v ID )"
+        # quemu vm ids
+        local vmids="$(qm list | awk '{print $1}' | grep -v ID )"
+        # All ids sorted and cleaned in a string
+        vm_ids=$(echo -e  "${vmids}\n${ctids}" | sort -n | tr '\n' ' ' | xargs )
+
     fi
 
     if [[ ! ${vzborg_repo} == *@* ]]; then
@@ -158,7 +164,7 @@ vzborg_backup() {
 
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
         before="$(date +%s)"
-
+        
         if vzdump ${VM_ID} --dumpdir ${dump_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" ${vzborg_repo}::${backup_name}.tmp - &>>${detail_file}; then
             # rename temporary archive
             borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
