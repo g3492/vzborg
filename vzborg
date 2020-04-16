@@ -87,6 +87,7 @@ vzborg_backup() {
     local vm_hostname=''
     local backup_status=''
     local dump_dir="$(mktemp -d /tmp/vzborg.XXXXXX)"
+    chmod 755 ${dump_dir}
 
     echo '' >>${detail_file}
     echo "DETAILED BACKUP INFORMATION" >>${detail_file}
