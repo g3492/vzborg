@@ -494,12 +494,12 @@ vzborg_prune() {
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             #   Is a container
             vm_type='CT'
-            vm_hostname="$(cat ${ct_conf_dir}${VM_ID}.conf | grep ^hostname | awk '{print $2}')"
+            vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
                 vm_type='VM'
-                vm_hostname="$(cat ${vm_conf_dir}${VM_ID}.conf | grep ^name | awk '{print $2}')"
+                vm_hostname="$(grep -m 1 ^name ${vm_conf_dir}${VM_ID}.conf | awk '{print $2}')"
             else
                 # unknown vm
                 vm_type='--'
@@ -617,8 +617,8 @@ ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
 # Qemu virtual machines configuration directory
 vm_conf_dir="/etc/pve/nodes/`hostname`/qemu-server/"
 # printf formats for backups times
-header_format="\n%2s  %5s  %8s  %5s  %-42s\n"
-line_format="%2s  %5s  %02d:%02d:%02d  %5s  %-42s\n"
+header_format="\n%2s  %5s  %8s  %6s  %-42s\n"
+line_format="%2s  %5s  %02d:%02d:%02d  %6s  %-42s\n"
 
 # Assign defaults to vzdump.conf variables
 vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
