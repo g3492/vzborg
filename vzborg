@@ -546,13 +546,17 @@ vzborg_restore() {
     # Get storage allowed content
     storage_content=$(grep -A 99999 ${restore_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
 
-    if [[ ! "$storage_content" == *images* ]]; then
-        die "Storage \"${restore_storage}\" is not an images storage"
-    fi
-
     case ${borg_archive} in
-    *.tar) vm_type='CT' ;;
-    *.vma) vm_type='VM' ;;
+    *.tar) 
+        if [[ ! "$storage_content" == *container* ]]; then
+            die "Storage \"${restore_storage}\" is not a containers storage"
+        fi
+        vm_type='CT' ;;
+    *.vma) 
+        if [[ ! "$storage_content" == *images* ]]; then
+            die "Storage \"${restore_storage}\" is not an images storage"
+        fi
+       vm_type='VM' ;;
     *) die "Option -b \"${borg_archive}\" is not a qemu or lxc valid backup file name" ;;
     esac
     # TODO Check if archive borg_archive exist in borg repo.
@@ -562,7 +566,7 @@ vzborg_restore() {
         if [[ ${vm_type} == 'VM' ]]; then
             borg extract --stdout ${vzborg_repo}::${borg_archive} | qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}
         else
-            borg extract --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs 8 --unprivileged 0 -
+            borg extract --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs 48 --unprivileged 0 -
         fi
         say "Restore finished"
     else
