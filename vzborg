@@ -586,13 +586,20 @@ vzborg_version() {
     #   installation script
     #   sane defaults
     # 0.5.0 (alfa)
-    #   vzborg.conf validation
-    #   updated and reformated help
+    #   vzborg.conf validation and as parameter
+    #   saferestore command (using getdump first)
+    #   
     # 0.6.0 (alfa)
     #   parameters validation
+    #   more info on borg comment field
+    #   
     # 0.7.0 (alfa)
+    #   store and capability to show VM original conf file
+    #
+    # 0.8.0 (alfa)
     #   basic debian package
     #   automated tests
+    #   updated and reformated help
     # 0.9 (beta)
     #   ask for contributions
     #   internationalization
