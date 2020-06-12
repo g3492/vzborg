@@ -82,6 +82,7 @@ vzborg_backup() {
     local vm_type=''
     local vm_ext=''
     local vm_hostname=''
+    local vm_config=''
     local backup_status=''
     local dump_dir="$(mktemp -d /tmp/vzborg.XXXXXX)"
     chmod 755 ${dump_dir}
@@ -140,12 +141,14 @@ vzborg_backup() {
             vm_type='CT'
             vm_ext='tar'
             vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
+            vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf )"
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
                 vm_type='VM'
                 vm_ext='vma'
                 vm_hostname="$(grep -m 1 ^name ${vm_conf_dir}${VM_ID}.conf | awk '{print $2}')"
+                vm_config="$(cat ${vm_conf_dir}${VM_ID}.conf )"
             else
                 # unknown vm
                 vm_type='--'
@@ -156,8 +159,9 @@ vzborg_backup() {
             fi
         fi
 
-        backup_comment="--comment=${vm_type} ${VM_ID} ${vm_hostname}"
+        backup_comment=$(echo -e "--comment=${vm_type} ${VM_ID} ${vm_hostname}\nBEGIN_CONFIG>\n${vm_config}\n<END_CONFIG")
         backup_name="${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').${vm_ext}"
+        echo -e $backup_comment >/root/borrame
 
 
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
@@ -178,13 +182,13 @@ vzborg_backup() {
     done
 
     echo "" >>${summary_file}
-    say "Host $(hostname) - vzborg backup complete!" >>${summary_file}
+    say "Host $(hostname) - Backup complete!" >>${summary_file}
     cat ${summary_file}
 
     # Adds detailed information
     cat ${detail_file} >>${summary_file}
 
-    mail -s "$(hostname) - vzborg backup statistics." ${NOTIFY_TO} <${summary_file}
+    mail -s "$(hostname) - Backup statistics." ${NOTIFY_TO} <${summary_file}
     rm -r ${detail_file} ${summary_file} ${dump_dir}
 }
 vzborg_delete() {
@@ -438,7 +442,7 @@ vzborg_list() {
         exit
     fi
     # Set a default list format 
-    local list_format='{archive}{SPACE}{comment}{SPACE}{hostname}{NL}'
+    local list_format='{archive} {bcomment}{NL}'
     local borg_format="--format=${list_format}"
 
     local list_file="$(mktemp /tmp/vzborg.XXXXXX)"
@@ -452,7 +456,8 @@ vzborg_list() {
         borg list "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >>${list_file}
     fi
 
-    cat ${list_file} | sort
+    cat ${list_file} | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" | sort
+    #cat ${list_file}
     rm ${list_file}
 }
 vzborg_prune() {
