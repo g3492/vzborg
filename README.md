@@ -72,6 +72,7 @@ Backup guest with ID 121
 | Option          | Value      |Use with commands       |Description                             |
 |:----------------|:-----------|:-----------------------|:---------------------------------------|
 |-b (--backup)    |BACKUP_NAME |delete/restore          |Name of an existing backup (archive)    |
+|-C (--config)    |CONFIG_NAME |all except help/version |Name of a config file in /etc/vzborg dir|
 |-d (--dry-run)   |            |backup/prune            |Just perform a simulation               |
 |-f (--force)     |            |restore                 |Force overwrite of existing VM/CT       |
 |-h (--help)      |            |all except help/version |Display command help. Requires -c option|
@@ -83,7 +84,7 @@ Backup guest with ID 121
 
 ### Configuration file:
 
- `/etc/vzborg.conf`
+ `/etc/vzborg/default`
 
 Edit before using Vzborg, to customize defaults values for repository, encryption, etc..
 
