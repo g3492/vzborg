@@ -11,9 +11,6 @@ set -o nounset
 set -o pipefail
 # set -o xtrace
 
-# LOAD DEFAULT VARIABLES FROM CONF FILE
-. /etc/vzborg.conf
-
 # USEFUL FUNCTIONS
 
 # trap ctrl-c and call ctrl_c()
@@ -485,7 +482,7 @@ vzborg_prune() {
 
     # Prune all backups
     if [[ $vm_ids = "all" ]]; then
-        vm_ids=$(vzborg -c list | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+        vm_ids=$(vzborg -c list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
     fi
 
     # Loop through each ID
@@ -595,7 +592,7 @@ vzborg_version() {
     #   
     # 0.7.0 (alfa)
     #   store and capability to show VM original conf file
-    #
+    #   backup server configuration
     # 0.8.0 (alfa)
     #   basic debian package
     #   automated tests
@@ -631,19 +628,12 @@ vm_conf_dir="/etc/pve/nodes/`hostname`/qemu-server/"
 header_format="\n%2s  %5s  %8s  %6s  %-42s\n"
 line_format="%2s  %5s  %02d:%02d:%02d  %6s  %-42s\n"
 
-# Assign defaults to vzdump.conf variables
-vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
-encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
-default_compression=${DEFAULT_COMPRESSION:-'zstd,3'}
-default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'}
 
-# if VZBORG_PASSPHRASE is defined export it as Borg BORG_PASSPHRASE
-if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
-    export BORG_PASSPHRASE="${VZBORG_PASSPHRASE}"
-fi
+# LOAD DEFAULT VARIABLES FROM CONF FILE
+. /etc/vzborg/default
 
 # Get borg version
-borg_version="$(borg -V | cut -d' ' -f2)"
+#borg_version="$(borg -V | cut -d' ' -f2)"
 
 # Options parser
 while [ $# -gt 0 ]; do
@@ -654,6 +644,10 @@ while [ $# -gt 0 ]; do
         ;;
     -c | --command)
         vzborg_command="$2"
+        shift 2
+        ;;
+    -C | --config)
+        . /etc/vzborg/${2}
         shift 2
         ;;
     -d | --dry-run)
@@ -693,6 +687,21 @@ while [ $# -gt 0 ]; do
         ;;
     esac
 done
+
+# if VZBORG_PASSPHRASE is defined export it as Borg BORG_PASSPHRASE
+if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
+    export BORG_PASSPHRASE="${VZBORG_PASSPHRASE}"
+fi
+
+# Assign defaults to vzborg conf variables
+
+if [[ -z "$vzborg_repoM" ]]; then
+    vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
+fi
+
+encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
+default_compression=${DEFAULT_COMPRESSION:-'zstd,3'}
+default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'}
 
 case ${vzborg_command} in
 backup) vzborg_backup ;;
