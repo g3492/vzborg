@@ -695,7 +695,7 @@ fi
 
 # Assign defaults to vzborg conf variables
 
-if [[ -z "$vzborg_repoM" ]]; then
+if [[ -z ${vzborg_repo:-''} ]]; then
     vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
 fi
 
