@@ -159,10 +159,8 @@ vzborg_backup() {
             fi
         fi
 
-        backup_comment=$(echo -e "--comment=${vm_type} ${VM_ID} ${vm_hostname}\nBEGIN_CONFIG>\n${vm_config}\n<END_CONFIG")
+        backup_comment=$(echo -e "--comment=(VM_Type: ${vm_type} VM_Id: ${VM_ID} VM_Hostname: ${vm_hostname})\nBEGIN_CONFIG>\n${vm_config}\n<END_CONFIG")
         backup_name="${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').${vm_ext}"
-        echo -e $backup_comment >/root/borrame
-
 
         say "Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"
         before="$(date +%s)"
@@ -345,7 +343,7 @@ vzborg_help() {
     echo "Additional options"
     echo
     echo "  -b BACKUP      - Name of an existing backup (archive)."
-    echo "                   use: delete|restore"
+    echo "                   use: delete|info|restore"
     echo "  -d             - Dry run. Perform simulation"
     echo "                   use: backup|prune"
     echo "  -f             - Force overwrite of existing VM/CT"
@@ -391,7 +389,7 @@ vzborg_help() {
 vzborg_info() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage: vzborg -c info [-i IDS_LISTS|all] \\"
+        echo "Usage: vzborg -c info [-b BACKUP_NAME] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
         echo "Examples:"
@@ -399,27 +397,26 @@ vzborg_info() {
         echo "  List info about default repository:"
         echo "    vzborg -c info"
         echo
-        echo "  List info of backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
-        echo "    vzborg -c list -i 303 -r /var/lib/vz/borg"
+        echo "  List info of backup vzdump-lxc-13998-2020_03_20-13_08_35.tar in borg repository /var/lib/vz/borg:"
+        echo "    vzborg -c list -b vzdump-lxc-13998-2020_03_20-13_08_35.tar -r /var/lib/vz/borg"
         echo
         exit
     fi
     # Set a default list format 
-
+    local list_format='{bcomment}{NL}'
     local list_file="$(mktemp /tmp/vzborg.XXXXXX)"
 
-    # Virtual machines IDs
-
-    if ! [ -z "${vm_ids}" ]; then
-        if [[ ${vm_ids} = "all" ]]; then
-            borg info "${vzborg_repo}" -P ${archs_prefix}- >${list_file}
-        else
-            for VM_ID in $vm_ids; do
-                borg info "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >${list_file}
-            done
-        fi
+    if ! [ -z "${backup_name}" ]; then    
+        local borg_format="--format=${list_format}"
+        echo -e "\nBackup Information" >${list_file}
+        echo -e "------------------\n" >>${list_file}
+        borg info "${vzborg_repo}::${backup_name}" | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d"  >>${list_file}
+        # Extract config file info from comment in archive
+        echo -e "\nVM configuration file:" >>${list_file}
+        echo -e "----------------------\n" >>${list_file}
+        borg list "${borg_format}" "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }'  >>${list_file}
     else
-        borg info "${vzborg_repo}"  >${list_file}
+        borg info "${vzborg_repo}"  >>${list_file}
     fi
 
     cat ${list_file}
@@ -455,9 +452,8 @@ vzborg_list() {
     else
         borg list "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >>${list_file}
     fi
-
+    # Remove configuration file info and sort by archive name
     cat ${list_file} | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" | sort
-    #cat ${list_file}
     rm ${list_file}
 }
 vzborg_prune() {
@@ -618,6 +614,7 @@ readonly archs_prefix=vzborg
 
 show_command_help=false
 vm_ids=''
+backup_name=''
 vzborg_command=''
 force_overwrite=''
 dry_run=''

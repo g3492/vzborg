@@ -52,7 +52,7 @@ Where COMMAND is one of:
 |  discard  |Discard all backups of given guests.|
 |  getdump  |Recreate a dump file from a backup. |
 |  help     |Show Vzborg help.                   |
-|  info     |Show repository or backups info     |
+|  info     |Show repository or backup info      |
 |  list     |List backups in a repository.       |
 |  prune    |Prune (purge) a repository.         | 
 |  restore  |Restore backup from a repository.   |
@@ -71,7 +71,7 @@ Backup guest with ID 121
 ### Additional options
 | Option          | Value      |Use with commands       |Description                             |
 |:----------------|:-----------|:-----------------------|:---------------------------------------|
-|-b (--backup)    |BACKUP_NAME |delete/restore          |Name of an existing backup (archive)    |
+|-b (--backup)    |BACKUP_NAME |delete//info/restore    |Name of an existing backup (archive)    |
 |-C (--config)    |CONFIG_NAME |all except help/version |Name of a config file in /etc/vzborg dir|
 |-d (--dry-run)   |            |backup/prune            |Just perform a simulation               |
 |-f (--force)     |            |restore                 |Force overwrite of existing VM/CT       |
