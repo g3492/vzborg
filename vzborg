@@ -330,11 +330,11 @@ vzborg_help() {
     echo "     backup   Perform a backup job."
     echo "     delete   Delete a specific backup."
     echo "     discard  Discard all backups of given guests."
-    echo "     getdump  Recreate a dump files from a backup."
-    echo "     help     Show this help."
+    echo "     getdump  Recreate a dump file from a backup."
+    echo "     help     Show this help or help about a command."
     echo "     info     Show info about repository or backup"
     echo "     list     List backups in repository."
-    echo "     prune    Prune borg repository."
+    echo "     prune    Prune (purge) repository."
     echo "     restore  Restore backup from repository."
     echo "     version  Show vzborg, borg and pve version."
     echo
@@ -363,7 +363,7 @@ vzborg_help() {
     echo
     echo "Configuration file:"
     echo
-    echo "  /etc/vzborg.conf"
+    echo "  /etc/vzborg/default"
     echo
     echo "    Edit before using vzborg, to customize defaults parameters."
     echo
@@ -374,7 +374,7 @@ vzborg_help() {
     echo "    vzborg -c restore -b vzdump-300-2020_03_20-13_11_46.vma -i 1300 -s local_lvm"
     echo "    vzborg -c list"
     echo "    vzborg -c list -i 303 -r ssh://example.com:22/mnt/remote_borg_repo"
-    echo "    vzborg -c list -i '1230 1040 2077' -r /mnt/borg"
+    echo "    vzborg -c list -i '1230 1040 2077' -r /mnt/vzborg"
     echo "    vzborg -c getdump -b vzdump-lxc-13998-2020_03_20-13_08_35.tar -s local_lvm"
     echo "    vzborg -c prune -i '101 102 307'"
     echo "    vzborg -c prune -i '101 102 307' -k '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'"
