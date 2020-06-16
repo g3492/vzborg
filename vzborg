@@ -416,6 +416,8 @@ vzborg_info() {
         echo -e "----------------------\n" >>${list_file}
         borg list "${borg_format}" "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }'  >>${list_file}
     else
+        echo -e "\nRepository Information" >${list_file}
+        echo -e "----------------------\n" >>${list_file} 
         borg info "${vzborg_repo}"  >>${list_file}
     fi
 
