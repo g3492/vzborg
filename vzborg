@@ -59,9 +59,11 @@ vzborg_backup() {
     if [[ ${show_command_help} = true ]]; then
         echo
         echo "Usage:"
-        echo "  vzborg -c backup -i LIST_OF_PVE_IDS_TO_BACKUP \\"
-        echo "                   [-r BORG_REPOSITORY_PATH] \\"
-        echo "                   [-m VZDUMP_MODE]"
+        echo "  vzborg -c backup -i VMID|VMIDS_LIST|all \\"
+        echo "                   [-k KEEP_SETTINGS] \\"
+        echo "                   [-m VZDUMP_MODE] \\"
+        echo "                   [-n \\"
+        echo "                   [-r BORG_REPOSITORY_PATH]"
         echo
         echo "Examples:"
         echo
@@ -171,6 +173,10 @@ vzborg_backup() {
             backup_status='ok'
         else
             backup_status='failed'
+        fi
+
+        if [[ ${prune_on_backup} = true ]]; then
+            vzborg -c prune -i ${VM_ID}
         fi
 
         after="$(date +%s)"
@@ -319,11 +325,13 @@ vzborg_help() {
     echo
     echo "  vzborg [OPTIONS]"
     echo
-    echo "  Vzborg only uses options. Specified, but not used options are ignored"
+    echo "  Vzborg does not use positional parameters. It only uses options."
+    echo "  Specified, but not used options, are ignored."
+    echo "  If duplicated options are informed, only the last one is used."
     echo
     echo "Required option:"
     echo
-    echo "  -c COMMAND  where COMMAND is the Vzborg command to execute"
+    echo "  -c|--command COMMAND  where COMMAND is the Vzborg command to execute"
     echo 
     echo "     COMMAND  Description"
     echo 
@@ -331,8 +339,8 @@ vzborg_help() {
     echo "     delete   Delete a specific backup."
     echo "     discard  Discard all backups of given guests."
     echo "     getdump  Recreate a dump file from a backup."
-    echo "     help     Show this help or help about a command."
-    echo "     info     Show info about repository or backup"
+    echo "     help     Show this help, or help about a command."
+    echo "     info     Show info about a backup or repository"
     echo "     list     List backups in repository."
     echo "     prune    Prune (purge) repository."
     echo "     restore  Restore backup from repository."
@@ -342,24 +350,26 @@ vzborg_help() {
     echo
     echo "Additional options"
     echo
-    echo "  -b BACKUP      - Name of an existing backup (archive)."
-    echo "                   use: delete|info|restore"
-    echo "  -d             - Dry run. Perform simulation"
-    echo "                   use: backup|prune"
-    echo "  -f             - Force overwrite of existing VM/CT"
-    echo "                   use: restore"
-    echo "  -h             - Display command help. Requires -c option."
-    echo "                   use: all except help and version"
-    echo "  -i IDS         - PVE VM/CT ID or list of PVE VM/CT IDs"
-    echo "                   use: backup|discard|list"
-    echo "  -k KEEP        - List of borg keep settings retention options."
-    echo "                   use: prune"
-    echo "  -m MODE        - vzdump mode < snapshot|stop|suspend > (default = snapshot)."
-    echo "                   use: backup"
-    echo "  -r REPOSITORY  - Borg repository path."
-    echo "                   use: all except help and version"
-    echo "  -s STORAGE     - Proxmox storage (default = local)"
-    echo "                   use: getdump|restore"
+    echo "  -b|--backup BACKUP_NAME     - Name of an existing backup (archive)."
+    echo "                                use: delete|info|restore"
+    echo "  -d|--dry-run                - Dry run. Perform simulation"
+    echo "                                use: backup|prune"
+    echo "  -f|--force                  - Force overwrite of existing VM/CT"
+    echo "                                use: restore"
+    echo "  -h|--help                   - Display command help. Requires -c option."
+    echo "                                use: all except help and version"
+    echo "  -i|--id IDS                 - PVE guest ID, list of PVE guest IDs, or \"all\""
+    echo "                                use: backup|discard|list|restore"
+    echo "  -k|--keep KEEP              - List of borg keep settings (retention options)."
+    echo "                                use: backup/prune"
+    echo "  -m|--mode MODE              - vzdump mode < snapshot|stop|suspend > (default = snapshot)."
+    echo "                                use: backup"
+    echo "  -n|--do-not-prune           - Do not prune repository during backup"
+    echo "                                use: backup"
+    echo "  -r|--repository REPOSITORY  - Borg repository path."
+    echo "                                use: all except help and version"
+    echo "  -s|--storage STORAGE        - Proxmox storage (default = local)"
+    echo "                                use: getdump|restore"
     echo
     echo "Configuration file:"
     echo
@@ -412,7 +422,7 @@ vzborg_info() {
         echo -e "------------------\n" >>${list_file}
         borg info "${vzborg_repo}::${backup_name}" | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d"  >>${list_file}
         # Extract config file info from comment in archive
-        echo -e "\nVM configuration file:" >>${list_file}
+        echo -e "\nVM Configuration File:" >>${list_file}
         echo -e "----------------------\n" >>${list_file}
         borg list "${borg_format}" "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }'  >>${list_file}
     else
@@ -462,7 +472,7 @@ vzborg_prune() {
     if [[ ${show_command_help} = true ]]; then
         echo
         echo "Usage:"
-        echo "  vzborg -c prune \\"
+        echo "  vzborg -c prune -i VMID|VMIDS_LIST|all \\"
         echo "                   [-r BORG_REPOSITORY_PATH] \\"
         echo "                   [-k KEEP_SETTINGS]"
         echo
@@ -619,6 +629,7 @@ vm_ids=''
 backup_name=''
 vzborg_command=''
 force_overwrite=''
+prune_on_backup=true
 dry_run=''
 vzdump_mode='snapshot'
 # set vzdump default quiet value
@@ -678,6 +689,10 @@ while [ $# -gt 0 ]; do
         vzdump_mode="$2"
         shift 2
         ;;
+    -n | --do-not-prune)
+        prune_on_backup=false
+        shift 1
+        ;;
     -r | --repository)
         vzborg_repo="$2"
         shift 2
@@ -692,7 +707,7 @@ while [ $# -gt 0 ]; do
     esac
 done
 
-# if VZBORG_PASSPHRASE is defined export it as Borg BORG_PASSPHRASE
+# if VZBORG_PASSPHRASE is defined, export it as Borg BORG_PASSPHRASE
 if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
     export BORG_PASSPHRASE="${VZBORG_PASSPHRASE}"
 fi
