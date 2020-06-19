@@ -60,3 +60,8 @@ DEFAULT_KEEP='--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'
 # 
 # Set a default compression for borg
 DEFAULT_COMPRESSION="zstd,3"
+
+# TEMPORARY DIR
+# 
+# Set a default directory for temporary files
+VZBORG_TEMP_DIR="/tmp"
