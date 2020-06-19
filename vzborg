@@ -374,7 +374,7 @@ vzborg_help() {
     echo "  -m|--mode <MODE>              - vzdump mode <snapshot|stop|suspend> (default=snapshot)."
     echo "                                  use: backup"
     echo "  -n|--do-not-prune             - Do not prune repository during backup"
-    echo "                                   use: backup"
+    echo "                                  use: backup"
     echo "  -r|--repository <REPOSITORY>  - VzBorg repository path."
     echo "                                  use: all except help and version"
     echo "  -s|--storage <STORAGE>        - Proxmox storage (default = local)"
@@ -745,11 +745,11 @@ if [[ ! -z ${VZBORG_PASSPHRASE:-''} ]]; then
 fi
 
 # Assign defaults to vzborg conf variables if not defined
-default_compression=${default_compression:-'zstd,3'}
-default_keep=${default_keep:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'}
-encryption_mode=${encryption_mode:-'repokey-blake2'}
-temp_dir=${vzborg_temp_dir:-'/tmp'}
-vzborg_repo=${vzborg_repo:-'/var/lib/vz/vzborg'}
+default_compression=${DEFAULT_COMPRESSION:-'zstd,3'}
+default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'}
+encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
+temp_dir=${VZBORG_TEMP_DIR:-'/tmp'}
+vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
 
 # Execute command function
 case ${vzborg_command} in
