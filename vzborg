@@ -355,7 +355,7 @@ vzborg_help() {
     echo
     echo "  Hint: Use \"vzborg <COMMAND> -h\" to get specific help about a command"
     echo
-    ECHO "OPTIONS"
+    echo "OPTIONS"
     echo
     echo "  -b|--backup <BACKUP_NAME>     - Name of an existing backup (archive)."
     echo "                                  use: delete|info|restore"

@@ -85,11 +85,11 @@ Backup guest with ID 121
 Edit before using VzBorg, to customize defaults values for repository, encryption, etc..
 
 You can have different config files in /etc/vzborg for managing different repositories or environments.
-You can instruct vzborg to read a specific configuration file, instead the default, with the -c option. Ex:
+You can instruct vzborg to read an additional configuration file with the -c option. Ex:
 
 `vzborg backup -c remoterepo -i 121`
 
-Backup guest with ID 121 reading configuration options from /etc/vzborg/remoterepo file.
+Backup guest with ID 121 reading additional configuration file /etc/vzborg/remoterepo.
 
 
 ### Backup names
