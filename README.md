@@ -2,7 +2,7 @@
 ## **Deduplicated, encrypted backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ )**
 
 With VzBorg you can:
-- Backup, restore, delete, list and maintain your backups in a flexible and efficient way.
+- Backup, restore, delete, list and maintain your PVE backups in a flexible and efficient way.
 - Use default retention settings to keep your desired number of hourly, daily, weekly, monthly and yearly backups.
 - Set up automated backups to remote repositories, simply setting appropriate ssh keys.
 
@@ -11,11 +11,11 @@ VzBorg uses vzdump and [BorgBackup](https://www.borgbackup.org/) to allow dedupl
 ## Requirements
 You need a proxmox 5.x or 6.x server with a suitable BorgBackup package installed. 
 
-If you are in proxmox 6.x you can install BorgBackup with:
+If you are running proxmox 6.x you can install BorgBackup with:
 
 `apt install borgbackup`
 
-If you are in proxmox 5.x you must enable stretch-backports repository:
+If you are running proxmox 5.x you must enable stretch-backports repository:
 
 `echo "deb http://ftp.debian.org/debian stretch-backports main" >>/etc/apt/sources.list`
 
@@ -25,7 +25,7 @@ If you are in proxmox 5.x you must enable stretch-backports repository:
 
 `apt install -t stretch-backports borgbackup`
 
-If you want to use a remote repository, you need BorgBackup installed on the remote computer, with the same or a greater version, than in your proxmox server. If your remote repository is on another proxmox server, you can also install VzBorg on it.
+If you want to use a remote repository, you need BorgBackup installed on the remote computer, with the same or a greater version, than the one in your proxmox server. If your remote repository is on another proxmox server, you can also install VzBorg on it.
 
 ## Installation
 As user root in your Proxmox server run:
