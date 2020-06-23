@@ -98,11 +98,15 @@ VzBorg creates backups encoding the guest ID and the backup time into the name, 
 
 `vzborg-104-2020_04_02-17_12_34.tar` for an lxc container
 
+or
+
 `vzborg-105-2020_04_02-17_15_11.vma` for a virtual machine
 
 When recreating a Proxmox backup file (getdump command), VzBorg will use the default PVE naming convention, for example:
 
 `vzdump-lxc-104-2020_04_02-17_12_34.tar.lzo` for an lxc container
+
+or
 
 `vzdump-qemu-105-2020_04_02-17_15_11.vma.lzo` for a virtual machine
 
@@ -114,7 +118,7 @@ Show help about restore command.
 
 `vzborg backup -i '101 102 307'`
 
-Backup guests 101, 102 and 307 with default mode snapshot, to the default repository.
+Backup guests 101, 102 and 307 with default mode snapshot, to the default repository using default keep settings (rettention).
 
 `vzborg restore -b vzborg-300-2020_03_20-13_11_46.vma -i 1300 -s local_lvm`
 

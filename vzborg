@@ -19,10 +19,10 @@ ctrl_c() {
     echo "** Trapped CTRL-C"
 }
 say() {
-    echo -e vzborg: $1
+    echo -e vzborg: ${1}
 }
 die() {
-    say "Error: $1" >&2
+    say "Error: ${1}" >&2
     exit 1
 }
 debug() {
@@ -54,24 +54,52 @@ conn_dict() {
 	echo "([url]=${url} [proto]=${proto} [user]=${user} [host]=${host} [port]=${port} [path]=${path})"
 }
 # VZBORG FUNCTIONS
-
 vzborg_backup() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage:"
+        echo "USAGE"
         echo "  vzborg backup -i VMID|VMIDS_LIST|all \\"
         echo "                   [-k KEEP_SETTINGS] \\"
-        echo "                   [-m VZDUMP_MODE] \\"
+        echo "                   [-m <snapshot|stop|suspend] \\"
         echo "                   [-n \\"
-        echo "                   [-r BORG_REPOSITORY_PATH]"
+        echo "                   [-r BORG_REPOSITORY]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  vzborg backup command lets you perform a backup job of one, a list, or all"
+        echo "  the guests on a Proxmox node."
         echo
-        echo "  Backup VM 1301 to default borg repository with default mode snapshot"
+        echo "  vzborg backup command will create on first run, the default repository, if it does "
+        echo "  not exist."
+        echo 
+        echo "  Prunning:"
+        echo "    By default, after the backup of each guest, a prune operation for that guest is "
+        echo "    performed on the repository, with default retention settings, or with those indicated "
+        echo "    by the -k or --keep option passed in the command line. This is to avoid the repository for"
+        echo "    growing without control."
+        echo "    If you do not want any prune operation performed during the backup job, you can indicate that "
+        echo "    with the -n or --do-not-prune option in the command line. Of course you can prune the repository"
+        echo "    when you want, using the \"vzborg prune\" command"
+        echo "    Be careful when prunning. No matter how many old backups you have, if you for example run the "
+        echo "    backup with just a \" -k '--keep-daily=2'\" option, you will end up in the repository, with " 
+        echo "    just the last 2 daily backups of the guests involved."
+        echo
+        echo "  Dump mode:"
+        echo "    By default, vzborg backup will use vzdump snapshot mode, which keeps the guest running"
+        echo "    during the backup operation."
+        echo "    If you need to stop or suspend the guest during the backup, for consistence or other reasons, "
+        echo "    you can specify it with the -m or --mode option in the command line."
+        echo
+        echo "EXAMPLES"
+        echo
+        echo "  Backup VM 1301 to default borg repository with default mode snapshot and default prunning (retention)" 
+        echo "  options."
         echo "    vzborg backup -i 1301"
         echo
-        echo "  Backup VM 1301, 204 and 301 to borg repository /var/lib/borgrepo with mode stop"
-        echo "    vzborg backup -i '1301 204 301' -r /var/lib/borgrepo -m stop"
+        echo "  Backup VM 1301, 204 and 301 to repository /var/lib/vzborgrepo with mode stop"
+        echo "    vzborg backup -i '1301 204 301' -r /var/lib/vzborgrepo -m stop"
+         echo
+        echo "  Backup all guest on the proxmox node with a specific retention setting"
+        echo "    vzborg backup -i all -k '--keep-daily=2 --keep-weekly=4 --keep-monthly=3 --keep-yearly=2'"
         echo
         exit
     fi
@@ -201,18 +229,22 @@ vzborg_backup() {
 vzborg_delete() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage:"
+        echo "USAGE"
         echo "  vzborg delete -b BACKUP_NAME \\"
-        echo "                   [-r BORG_REPOSITORY_PATH]"
+        echo "                   [-r BORG_REPOSITORY]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg delete command, removes or deletes just one backup from the"
+        echo "  default repository, or from the one indicated with the -r or --repository option."
         echo
-        echo "  Delete backup vzdump-1301-2020_03_20-13_18_45.vma"
-        echo "  from default borg repository"
-        echo "    vzborg delete -b vzdump-1301-2020_03_20-13_18_45.vma"
+        echo "EXAMPLES"
         echo
-        echo "  Delete backup vzdump-141-2020_03_20-13_18_45.tar in repository /mnt/borgrepo"
-        echo "    vzborg delete -b vzdump-141-2020_03_20-13_18_45.tar -r /mnt/borgrepo"
+        echo "  Delete backup vzborg-1301-2020_03_20-13_18_45.vma"
+        echo "  from default repository"
+        echo "    vzborg delete -b vzborg-1301-2020_03_20-13_18_45.vma"
+        echo
+        echo "  Delete backup vzborg-141-2020_03_20-13_18_45.tar in repository /mnt/borgrepo"
+        echo "    vzborg delete -b vzborg-141-2020_03_20-13_18_45.tar -r /mnt/borgrepo"
         echo
         exit
     fi
@@ -233,10 +265,16 @@ vzborg_delete() {
 vzborg_discard() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage: vzborg discard [-i IDS_LISTS] \\"
+        echo "USAGE"
+        echo:"   vzborg discard [-i ID|IDS_LISTS] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg discard command, removes or deletes all existing backups of a guest, or "
+        echo "  list of guest, from the default repository, or from the one indicated"
+        echo "  with the -r or --repository option."
+        echo
+        echo "EXAMPLES"
         echo
         echo "  Discard all backups of VM/CT with Ids 123, 124 and 201 in default repository:"
         echo "    vzborg discard -i '123 124 201'"
@@ -265,22 +303,26 @@ vzborg_discard() {
 vzborg_getdump() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage:"
+        echo "USAGE"
         echo "  vzborg getdump -b BACKUP_NAME \\"
-        echo "                   [-r BORG_REPOSITORY_PATH] \\"
+        echo "                   [-r BORG_REPOSITORY] \\"
         echo "                   [-s PVE_STORAGE]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg getdump command recreates a dump file into a suitable proxmox storage, from a backup in a "
+        echo "  repository. The recreated file, will follow the proxmox dump naming convention."
+        echo
+        echo "EXAMPLES"
         echo
         echo "  Recreate dump file vzdump-qemu-1301-2020_03_20-13_18_45.vma.lzo"
-        echo "  from backup vzdump-1301-2020_03_20-13_18_45.vma"
-        echo "  from default borg repository to storage backup"
-        echo "    vzborg getdump -b vzdump-1301-2020_03_20-13_18_45.vma -s backup"
+        echo "  from backup vzborg-1301-2020_03_20-13_18_45.vma in default repository "
+        echo "  to proxmox storage backup"
+        echo "    vzborg getdump -b vzborg-1301-2020_03_20-13_18_45.vma -s backup"
         echo
         echo "  Recreate dump file vzdump-lxc-141-2020_03_20-13_18_45.tar.lzo"
-        echo "  from backup vzdump-141-2020_03_20-13_18_45.tar in borg repository /mnt/borgrepo"
-        echo "  to default storage local"
-        echo "    vzborg getdump -b vzdump-141-2020_03_20-13_18_45.tar -r /mnt/borgrepo"
+        echo "  from backup vzborg-141-2020_03_20-13_18_45.tar in repository /mnt/borgrepo"
+        echo "  to default proxmox storage"
+        echo "    vzborg getdump -b vzborg-141-2020_03_20-13_18_45.tar"
         echo
         exit
     fi
@@ -387,8 +429,16 @@ vzborg_help() {
     echo
     echo "  /etc/vzborg/default"
     echo
-    echo "    Edit before using vzborg, to customize defaults parameters."
-    echo "    Use the comments in the file as a guidance."
+    echo "    Edit before using vzborg for the first time."
+    echo "    Use the comments in the file as guidance."
+    echo
+    echo "    You can set default values for:"
+    echo "      - Repository location"
+    echo "      - Encryption"
+    echo "      - Backup retention settings (keep settings)"
+    echo "      - Compression"
+    echo "      - Admin e-mail"
+    echo "      - Temporary directory"
     echo
     echo "    You can create and use additional configuration files in the /etc/vzborg directory,"
     echo "    to override when you need, the values from the default config."
@@ -399,11 +449,11 @@ vzborg_help() {
     echo "    vzborg restore --help"
     echo "    vzborg backup --id '101 102 307'"
     echo "    vzborg backup --id all"
-    echo "    vzborg restore --backup vzdump-300-2020_03_20-13_11_46.vma --id 1300 --storage local_lvm"
+    echo "    vzborg restore --backup vzborg-300-2020_03_20-13_11_46.vma --id 1300 --storage local_lvm"
     echo "    vzborg list"
     echo "    vzborg list -i 303 --repository ssh://example.com:22/mnt/remote_borg_repo"
     echo "    vzborg list -i '1230 1040 2077' -r /mnt/vzborg"
-    echo "    vzborg getdump --backup vzdump-lxc-13998-2020_03_20-13_08_35.tar --storage local_lvm"
+    echo "    vzborg getdump --backup vzborg-13998-2020_03_20-13_08_35.tar --storage local_lvm"
     echo "    vzborg prune -i '101 102 307'"
     echo "    vzborg prune -i '101 102 307' --keep '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'"
     echo
@@ -418,16 +468,28 @@ vzborg_help() {
 vzborg_info() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage: vzborg info [-b BACKUP_NAME] \\"
+        echo "USAGE"
+        echo "  vzborg info [-b BACKUP_NAME] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg info command when used with a backup name, will give statistical information"
+        echo "  about that specific backup, including:"
+        echo "    - guest type, id and hostname."
+        echo "    - proxmox host."
+        echo "    - star, end and duration time."
+        echo "    - original, compressed and deduplicated size."
+        echo "    - guest configuration file details."
+        echo
+        echo "  When used without a backup name, the vzborg info command will display statistical information"
+        echo "  about the default repository, or the one specified with the -r or --repository option"
+        echo "EXAMPLES"
         echo
         echo "  List info about default repository:"
         echo "    vzborg info"
         echo
-        echo "  List info of backup vzdump-lxc-13998-2020_03_20-13_08_35.tar in borg repository /var/lib/vz/borg:"
-        echo "    vzborg info -b vzdump-lxc-13998-2020_03_20-13_08_35.tar -r /var/lib/vz/borg"
+        echo "  List info of backup vzborg-lxc-13998-2020_03_20-13_08_35.tar in borg repository /var/lib/vz/borg:"
+        echo "    vzborg info -b vzborg-lxc-13998-2020_03_20-13_08_35.tar -r /var/lib/vz/borg"
         echo
         exit
     fi
@@ -459,13 +521,23 @@ vzborg_list() {
         echo "Usage: vzborg list [-i VMID|VMIDS_LIST] \\"
         echo "                   [-r BORG_REPOSITORY]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg list command, when used without the -i or --id option,  will display a list of "
+        echo "  all existing backups in the default repository, or in the one specified with the -r or y"
+        echo "  --repository option."
+        echo "  When used with the -i or --id option, will dipslay a list of all existing backups for the"
+        echo "  specified guests."
         echo
-        echo "  List all backups in default repository:"
+        echo "  The list contains the backup name, guest type, id and hostname. If you need more info about a "
+        echo "  specific backup, use the vzborg info command."
+        echo
+        echo "EXAMPLES"
+        echo
+        echo "  List all backups in the default repository:"
         echo "    vzborg list"
         echo
-        echo "  List backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
-        echo "    vzborg list -i 303 -r /var/lib/vz/borg"
+        echo "  List backups of guest with ID 303 in the repository /var/lib/vz/vzborg:"
+        echo "    vzborg list -i 303 -r /var/lib/vz/vzborg"
         echo
         exit
     fi
@@ -490,14 +562,41 @@ vzborg_list() {
 vzborg_prune() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage:"
+        echo "USAGE"
         echo "  vzborg prune -i VMID|VMIDS_LIST|all \\"
-        echo "                   [-r BORG_REPOSITORY_PATH] \\"
+        echo "                   [-r BORG_REPOSITORY] \\"
         echo "                   [-k KEEP_SETTINGS]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg prune command performs a prune operation in the "
+        echo "  default repository, or in the one specified with the -r or --repository option."
+        echo "  The operation will apply the default KEEP_SETTINGS, or the ones specified with"
+        echo "  the -k or --keep option in the command line, to the backups of the guests specified"
+        echo "  with the -i or --id option."
         echo
+        echo "  KEEP_SETTINGS:"
+        echo "    Is a a string of space separated keep options. The keep options are retention options"
+        echo "    asigned a numeric value using an equal sign (=). The following are the most useful options,"
+        echo "    where <n> is the number of backups to keep, or a negative number to keep all:"
+        echo "      --keep-last=<n>"
+        echo "      --keep-hourly=<n>"
+        echo "      --keep-daily=<n>"
+        echo "      --keep-weekly=<n>"
+        echo "      --keep-monthly=<n>"
+        echo "      --keep-yearly=<n>"
         echo
+        echo "EXAMPLES"
+        echo
+        echo "  Purge default repository keeping 7 end of day and 4 additional end of week backups of guest 203"
+        echo "    vzborg prune -i 203 -k '--keep-daily=7 --keep-weekly=4'"
+        echo "  Purge remote repository ssh://remote.server.com:22/mnt/remote_borg_repo keeping only the last 3 backups"
+        echo "  of all guests"
+        echo "    vzborg prune -i all -k '--keep-last=3' -r ssh://remote.server.com:22/mnt/remote_borg_repo "
+        echo "  Purge default repository keeping 7 end of day, 4 additional end of week, and 2 end of month backups"
+        echo "  of guests 101, 102 and 201"
+        echo "    vzborg prune --id '101 102 201' --keep '--keep-daily=7 --keep-weekly=4 --keep-monthly=2'"
+        echo "  Purge default repository keeping 4 end of week backups, and all end of month backups of guest 302"
+        echo "    vzborg prune --id 302 -k '--keep-monthly=-1 --keep-weekly=4'"
         exit
     fi
 
@@ -537,24 +636,30 @@ vzborg_prune() {
 vzborg_restore() {
     if [[ ${show_command_help} = true ]]; then
         echo
-        echo "Usage:"
+        echo "USAGE"
         echo "  vzborg restore -b BACKUP_NAME -i PVE_ID_FOR_RESTORE \\"
         echo "                   [-f] \\"
-        echo "                   [-r BORG_REPOSITORY_PATH] \\"
+        echo "                   [-r BORG_REPOSITORY] \\"
         echo "                   [-s pve_storage]"
         echo
-        echo "Examples:"
+        echo "DESCRIPTION"
+        echo "  The vzborg restore command, restores a guest from a given backup in the"
+        echo "  default repository, or the one specified with the -r or --repository option,"
+        echo "  to the given pve storage (or local if none specified), using the id provided "
+        echo "  with the -i or --id option."
+        echo "  If in the PVE storage a guest exists with the provided id, if you want to "
+        echo "  override it, with the backup, you should use the -f or --force option. "
         echo
-        echo "  Restore VM 1301 from backup vzdump-1301-2020_03_20-13_18_45.vma"
-        echo "  from default borg repository with id 1432 to storage local_lvme"
-        echo "  forcing overwrite if VM 1432 exists:"
-        echo "    vzborg restore -b vzdump-1301-2020_03_20-13_18_45.vma -s local-lvm -i 1432 -f"
+        echo "EXAMPLES"
         echo
-        echo "  Restore CT 141 from backup vzdump-141-2020_03_20-13_18_45.tar"
-        echo "  in borg repository /mnt/borgrepo"
-        echo "  with id 304 to default storage local"
-        echo "  without forcing overwrite:"
-        echo "    vzborg restore -b vzdump-141-2020_03_20-13_18_45.tar -r /mnt/borgrepo -i 304"
+        echo "  Restore VM 1301 from backup vzborg-1301-2020_03_20-13_18_45.vma"
+        echo "  from default borg repository with id 1432 to storage local_lvm"
+        echo "  forcing overwrite if guest 1432 exists:"
+        echo "    vzborg restore -b vzborg-1301-2020_03_20-13_18_45.vma -s local-lvm -i 1432 -f"
+        echo
+        echo "  Restore CT 141 from backup vzborg-141-2020_03_20-13_18_45.tar"
+        echo "  in borg repository /mnt/borgrepo to default storage local with id 304"
+        echo "    vzborg restore -b vzborg-141-2020_03_20-13_18_45.tar -r /mnt/borgrepo -i 304"
         echo
         exit
     fi
