@@ -72,13 +72,13 @@ vzborg_backup() {
         echo "  not exist."
         echo 
         echo "  Prunning:"
-        echo "    By default, after the backup of each guest, a prune operation for that guest is "
+        echo "    By default, after the backup of each guest, a purge operation for that guest is "
         echo "    performed on the repository, with default retention settings, or with those indicated "
         echo "    by the -k or --keep option passed in the command line. This is to avoid the repository for"
         echo "    growing without control."
-        echo "    If you do not want any prune operation performed during the backup job, you can indicate that "
-        echo "    with the -n or --do-not-prune option in the command line. Of course you can prune the repository"
-        echo "    when you want, using the \"vzborg prune\" command"
+        echo "    If you do not want any purge operation performed during the backup job, you can indicate that "
+        echo "    with the -n or --do-not-purge option in the command line. Of course you can purge the repository"
+        echo "    when you want, using the \"vzborg purge\" command"
         echo "    Be careful when prunning. No matter how many old backups you have, if you for example run the "
         echo "    backup with just a \" -k '--keep-daily=2'\" option, you will end up in the repository, with " 
         echo "    just the last 2 daily backups of the guests involved."
@@ -206,8 +206,8 @@ vzborg_backup() {
             backup_status='failed'
         fi
 
-        if [[ ${prune_on_backup} = true ]]; then
-            vzborg_prune
+        if [[ ${purge_on_backup} = true ]]; then
+            vzborg_purge
         fi
 
         after="$(date +%s)"
@@ -391,7 +391,7 @@ vzborg_help() {
     echo "     help     Show this help, or help about a command."
     echo "     info     Show info about a backup or repository"
     echo "     list     List backups in a repository."
-    echo "     prune    Prune (purge) a repository."
+    echo "     purge    Purge (prune) a repository."
     echo "     restore  Restore backup from a repository."
     echo "     version  Show VzBorg, Borg and PVE version."
     echo
@@ -404,7 +404,7 @@ vzborg_help() {
     echo "  -c|--config <CONFIG_NAME>     - Read configuration file with name CONFIG_NAME"
     echo "                                  use: all except help and version"
     echo "  -d|--dry-run                  - Dry run. Perform simulation"
-    echo "                                  use: backup|prune"
+    echo "                                  use: backup|purge"
     echo "  -f|--force                    - Force overwrite of existing VM/CT"
     echo "                                  use: restore"
     echo "  -h|--help                     - Display command help."
@@ -412,10 +412,10 @@ vzborg_help() {
     echo "  -i|--id <IDS>                 - PVE guest ID, list of PVE guest IDs, or \"all\""
     echo "                                  use: backup|discard|list|restore"
     echo "  -k|--keep <KEEP>              - List of borg keep settings (retention options)."
-    echo "                                  use: backup/prune"
+    echo "                                  use: backup/purge"
     echo "  -m|--mode <MODE>              - vzdump mode <snapshot|stop|suspend> (default=snapshot)."
     echo "                                  use: backup"
-    echo "  -n|--do-not-prune             - Do not prune repository during backup"
+    echo "  -n|--do-not-purge             - Do not purge repository during backup"
     echo "                                  use: backup"
     echo "  -r|--repository <REPOSITORY>  - VzBorg repository path."
     echo "                                  use: all except help and version"
@@ -454,8 +454,8 @@ vzborg_help() {
     echo "    vzborg list -i 303 --repository ssh://example.com:22/mnt/remote_borg_repo"
     echo "    vzborg list -i '1230 1040 2077' -r /mnt/vzborg"
     echo "    vzborg getdump --backup vzborg-13998-2020_03_20-13_08_35.tar --storage local_lvm"
-    echo "    vzborg prune -i '101 102 307'"
-    echo "    vzborg prune -i '101 102 307' --keep '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'"
+    echo "    vzborg purge -i '101 102 307'"
+    echo "    vzborg purge -i '101 102 307' --keep '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'"
     echo
     echo "NOTES"
     echo " About VzBorg backup (archive) names:"
@@ -559,16 +559,16 @@ vzborg_list() {
     cat ${list_file} | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" | sort
     rm ${list_file}
 }
-vzborg_prune() {
+vzborg_purge() {
     if [[ ${show_command_help} = true ]]; then
         echo
         echo "USAGE"
-        echo "  vzborg prune -i VMID|VMIDS_LIST|all \\"
+        echo "  vzborg purge -i VMID|VMIDS_LIST|all \\"
         echo "                   [-r BORG_REPOSITORY] \\"
         echo "                   [-k KEEP_SETTINGS]"
         echo
         echo "DESCRIPTION"
-        echo "  The vzborg prune command performs a prune operation in the "
+        echo "  The vzborg purge command performs a purge (prune in borgbackup parlance) operation in the "
         echo "  default repository, or in the one specified with the -r or --repository option."
         echo "  The operation will apply the default KEEP_SETTINGS, or the ones specified with"
         echo "  the -k or --keep option in the command line, to the backups of the guests specified"
@@ -588,21 +588,21 @@ vzborg_prune() {
         echo "EXAMPLES"
         echo
         echo "  Purge default repository keeping 7 end of day and 4 additional end of week backups of guest 203"
-        echo "    vzborg prune -i 203 -k '--keep-daily=7 --keep-weekly=4'"
+        echo "    vzborg purge -i 203 -k '--keep-daily=7 --keep-weekly=4'"
         echo "  Purge remote repository ssh://remote.server.com:22/mnt/remote_borg_repo keeping only the last 3 backups"
         echo "  of all guests"
-        echo "    vzborg prune -i all -k '--keep-last=3' -r ssh://remote.server.com:22/mnt/remote_borg_repo "
+        echo "    vzborg purge -i all -k '--keep-last=3' -r ssh://remote.server.com:22/mnt/remote_borg_repo "
         echo "  Purge default repository keeping 7 end of day, 4 additional end of week, and 2 end of month backups"
         echo "  of guests 101, 102 and 201"
-        echo "    vzborg prune --id '101 102 201' --keep '--keep-daily=7 --keep-weekly=4 --keep-monthly=2'"
+        echo "    vzborg purge --id '101 102 201' --keep '--keep-daily=7 --keep-weekly=4 --keep-monthly=2'"
         echo "  Purge default repository keeping 4 end of week backups, and all end of month backups of guest 302"
-        echo "    vzborg prune --id 302 -k '--keep-monthly=-1 --keep-weekly=4'"
+        echo "    vzborg purge --id 302 -k '--keep-monthly=-1 --keep-weekly=4'"
         exit
     fi
 
     local retention=${keep_setting:-$DEFAULT_KEEP}
 
-    # Prune all backups
+    # purge all backups
     if [[ $vm_ids = "all" ]]; then
         vm_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
     fi
@@ -764,7 +764,7 @@ backup_name=''
 dry_run=''
 force_overwrite=''
 output_file=''
-prune_on_backup=true
+purge_on_backup=true
 show_command_help=false
 vm_ids=''
 vzborg_command=''
@@ -822,8 +822,8 @@ while [ $# -gt 0 ]; do
         vzdump_mode="$2"
         shift 2
         ;;
-    -n | --do-not-prune)
-        prune_on_backup=false
+    -n | --do-not-purge)
+        purge_on_backup=false
         shift 1
         ;;
     -r | --repository)
@@ -865,7 +865,7 @@ getdump) vzborg_getdump ;;
 help) vzborg_help ;;
 info) vzborg_info ;;
 list) vzborg_list ;;
-prune) vzborg_prune ;;
+purge | prune) vzborg_purge ;;
 restore) vzborg_restore ;;
 version) vzborg_version ;;
 *) die "Invalid or not given vzborg command. Try vzborg help" ;;
