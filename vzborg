@@ -32,26 +32,25 @@ version_greater_equal() {
     printf '%s\n%s\n' "$2" "$1" | sort -V -C
 }
 conn_dict() {
-	# return a definition of a bash dictionary, with the components of a connection string
-	# warning: supports only full remote paths. Relative or home based paths will not work
-	local connection_str=${1}
-	# extract the protocol
-	local proto="$(echo $connection_str | grep :// | sed -e's,^\(.*://\).*,\1,g')"
-	# remove the protocol
-	local url=${connection_str/$proto/}
-	# extract the user (if any)
-	local user="$(echo $url | grep @ | cut -d@ -f1)"
-	# extract the host and port
-	local hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
-	# extract host without port    
-	local host="$(echo $hostport | sed -e 's,:.*,,g')"
-	# try to extract the port
-	local port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
-	# extract the path (if any)
-	local path=/"$(echo $url | grep / | cut -d/ -f2-)"
+    # return a definition of a bash dictionary, with the components of a connection string
+    # warning: supports only full remote paths. Relative or home based paths will not work
+    local connection_str=${1}
+    # extract the protocol
+    local proto="$(echo $connection_str | grep :// | sed -e's,^\(.*://\).*,\1,g')"
+    # remove the protocol
+    local url=${connection_str/$proto/}
+    # extract the user (if any)
+    local user="$(echo $url | grep @ | cut -d@ -f1)"
+    # extract the host and port
+    local hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
+    # extract host without port
+    local host="$(echo $hostport | sed -e 's,:.*,,g')"
+    # try to extract the port
+    local port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
+    # extract the path (if any)
+    local path=/"$(echo $url | grep / | cut -d/ -f2-)"
 
-	
-	echo "([url]=${url} [proto]=${proto} [user]=${user} [host]=${host} [port]=${port} [path]=${path})"
+    echo "([url]=${url} [proto]=${proto} [user]=${user} [host]=${host} [port]=${port} [path]=${path})"
 }
 # VZBORG FUNCTIONS
 vzborg_backup() {
@@ -83,7 +82,7 @@ vzborg_backup() {
         echo "    during the backup operation."
         echo "    If you need to stop or suspend the guest during the backup, for consistence or other reasons, "
         echo "    you can do it with the -m or --mode option in the command line."
-        echo 
+        echo
         echo "  Purging:"
         echo "    When using the -p or --purge option, a purge operation for each successfully backed up "
         echo "    guest will be performed on the repository."
@@ -92,17 +91,17 @@ vzborg_backup() {
         echo
         echo "    Purging while performing the backup, may be desirable when there are space restrictions."
         echo "    Be aware that purging will add some time to the total backup operation."
-        echo 
+        echo
         echo "    If you do not purge your repository during backups, you can do it manually or with "
         echo "    a cron job, using the \"vzborg purge\" command."
         echo
         echo "    Be careful when purging. If for example you run the backup with just "
-        echo "    a \" -k '--keep-daily=2'\" option, you will end up with only the last 2 daily " 
+        echo "    a \" -k '--keep-daily=2'\" option, you will end up with only the last 2 daily "
         echo "    backups of the guests involved, and that may be not what you want."
         echo
         echo "EXAMPLES"
         echo
-        echo "  Backup guest 1301 to default repository with default mode snapshot" 
+        echo "  Backup guest 1301 to default repository with default mode snapshot"
         echo "  options."
         echo "    vzborg backup -i 1301"
         echo
@@ -116,8 +115,8 @@ vzborg_backup() {
         echo "    vzborg backup --id all --purge --keep '--keep-daily=2 --keep-weekly=4 --keep-monthly=3 --keep-yearly=1'"
         echo
         exit
-    fi  
- 
+    fi
+
     if [ -z "${vm_ids:-}" ]; then
         die 'No guests to backup. Check your -i o --id option.'
     fi
@@ -141,14 +140,14 @@ vzborg_backup() {
     # Virtual machines IDs
     if [[ $vm_ids = "all" ]]; then
         # containers ids
-        local ctids="$(pct list | awk '{print $1}' | grep -v ID )"
+        local ctids="$(pct list | awk '{print $1}' | grep -v ID)"
         # quemu vm ids
-        local vmids="$(qm list | awk '{print $1}' | grep -v ID )"
+        local vmids="$(qm list | awk '{print $1}' | grep -v ID)"
         # All ids sorted and cleaned in a string
-        vm_ids=$(echo -e  "${vmids}\n${ctids}" | sort -n | tr '\n' ' ' | xargs )
+        vm_ids=$(echo -e "${vmids}\n${ctids}" | sort -n | tr '\n' ' ' | xargs)
 
     fi
-    
+
     # Check if vzborg repo exists
     if [[ ! ${vzborg_repo} == *@* ]]; then
         # Not a remote repository
@@ -177,9 +176,9 @@ vzborg_backup() {
             echo '' >>${detail_file}
         fi
     fi
-    say "> Host $(hostname) - Backup job started for guests $vm_ids."  |& tee -a ${detail_file}
+    say "> Host $(hostname) - Backup job started for guests $vm_ids." |& tee -a ${detail_file}
     if [[ ${purge_on_backup} = true ]]; then
-        say "> with purge option and retention \"${retention}\"."  |& tee -a ${detail_file}
+        say "> with purge option and retention \"${retention}\"." |& tee -a ${detail_file}
     fi
 
     # Loop through each VM ID
@@ -190,14 +189,14 @@ vzborg_backup() {
             vm_type='CT'
             vm_ext='tar'
             vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
-            vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf )"
+            vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf)"
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # is a virtual machine
                 vm_type='VM'
                 vm_ext='vma'
                 vm_hostname="$(grep -m 1 ^name ${vm_conf_dir}${VM_ID}.conf | awk '{print $2}')"
-                vm_config="$(cat ${vm_conf_dir}${VM_ID}.conf )"
+                vm_config="$(cat ${vm_conf_dir}${VM_ID}.conf)"
             else
                 # unknown vm
                 vm_type='--'
@@ -209,13 +208,13 @@ vzborg_backup() {
         fi
 
         # Include vm type, id, hostname and configuration info as comment in backup
-        backup_comment=$(echo -e "--comment=(VM_Type: ${vm_type} VM_Id: ${VM_ID} VM_Hostname: ${vm_hostname})\nBEGIN_CONFIG>\n${vm_config}\n<END_CONFIG")
+        backup_comment=$(echo -e "--comment=([vm_type]=${vm_type} [vm_id]=${VM_ID} [vm_hostname]=${vm_hostname})\nBEGIN_CONFIG>\n${vm_config}\n<END_CONFIG")
         backup_name="${archs_prefix}-${VM_ID}-$(date '+%Y_%m_%d-%H_%M_%S').${vm_ext}"
 
-        say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})"  |& tee -a ${detail_file}
+        say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
-        if vzdump ${VM_ID}  --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" \
-                ${vzborg_repo}::${backup_name}.tmp - |& tee -a ${detail_file}; then
+        if vzdump ${VM_ID} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" \
+            ${vzborg_repo}::${backup_name}.tmp - |& tee -a ${detail_file}; then
             # rename temporary archive
             borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
             backup_status='ok'
@@ -225,20 +224,20 @@ vzborg_backup() {
         backup_es=$SECONDS
         if [[ ${purge_on_backup} = true ]]; then
             SECONDS=0
-            say "--> Purging"  |& tee -a ${detail_file}
-            if  borg prune -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
+            say "--> Purging" |& tee -a ${detail_file}
+            if borg prune -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
                 purge_status='done'
             else
                 purge_status='failed'
-            fi 
+            fi
             purge_es=$SECONDS
-            say "<-- Done Purging"  |& tee -a ${detail_file}
+            say "<-- Done Purging" |& tee -a ${detail_file}
         else
             purge_status='no'
         fi
 
         say "<- Finished backup of ${vm_type} ${VM_ID} (${vm_hostname})." |& tee -a ${detail_file}
-        
+
         printf "$line_format" $vm_type $VM_ID $(($backup_es / 3600)) $(($backup_es % 3600 / 60)) $(($backup_es % 60)) $backup_status $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
     done
 }
@@ -419,7 +418,7 @@ vzborg_help() {
     echo "  VzBorg must be used with one of the following commands:"
     echo
     echo "     COMMAND  Description"
-    echo 
+    echo
     echo "     backup   Perform a backup job."
     echo "     delete   Delete a specific backup."
     echo "     discard  Discard all backups of given guests."
@@ -535,23 +534,23 @@ vzborg_info() {
         echo
         exit
     fi
-    # Set a default list format 
+    # Set a default list format
     local list_format='{bcomment}{NL}'
     local list_file="$(mktemp ${temp_dir}/vzborg.XXXXXX)"
 
-    if ! [ -z "${backup_name}" ]; then    
+    if ! [ -z "${backup_name}" ]; then
         local borg_format="--format=${list_format}"
         echo -e "\nBackup Information" >${list_file}
         echo -e "------------------\n" >>${list_file}
-        borg info "${vzborg_repo}::${backup_name}" | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d"  >>${list_file}
+        borg info "${vzborg_repo}::${backup_name}" | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" >>${list_file}
         # Extract config file info from comment in archive
         echo -e "\nVM Configuration File:" >>${list_file}
         echo -e "----------------------\n" >>${list_file}
-        borg list "${borg_format}" "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }'  >>${list_file}
+        borg list "${borg_format}" "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }' >>${list_file}
     else
         echo -e "\nRepository Information" >${list_file}
-        echo -e "----------------------\n" >>${list_file} 
-        borg info "${vzborg_repo}"  >>${list_file}
+        echo -e "----------------------\n" >>${list_file}
+        borg info "${vzborg_repo}" >>${list_file}
     fi
 
     cat ${list_file}
@@ -591,7 +590,7 @@ vzborg_list() {
         echo
         exit
     fi
-    # Set a default list format 
+    # Set a default list format
     local list_format='{archive} {bcomment}{NL}'
     local borg_format="--format=${list_format}"
 
@@ -661,26 +660,44 @@ vzborg_purge() {
     local retention=${keep_setting:-$DEFAULT_KEEP}
     local purge_es=0
     local purge_status=''
+    local guest=''
 
     # purge all backups
     if [[ $vm_ids = "all" ]]; then
         vm_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
     fi
-
+    say "> Host $(hostname) - Purge job started for guests $vm_ids." |& tee -a ${detail_file}
+    say "> with retention \"${retention}\"." |& tee -a ${detail_file}
     # Loop through each ID
     for VM_ID in $vm_ids; do
-        say "Prunning repository of backups of VM/CT ${VM_ID}"
-        say "  using ${retention} retention options."
+        say "-> Purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
+        # Get guest information from backup
+        guest=$(vzborg list -i ${VM_ID} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
+
+        if [ ! -z "${guest}" ]; then
+            guest='('$guest')'            
+            # generate array with recovered backup info
+            declare -A guest_="${guest}"
+            vm_type=${guest_[vm_type]}
+            vm_hostname=${guest_[vm_type]}
+        else
+            vm_type='--'
+            vm_hostname='No Backup with this ID'
+            prune_status='failed'
+            printf "$line_format" $vm_type $VM_ID 0 0 0 'no' 0 0 0 $prune_status $vm_hostname >>${summary_file}
+            continue
+        fi
+
         SECONDS=0
-        if  borg prune -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
+        if borg prune -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
             purge_status='done'
         else
             purge_status='failed'
-        fi 
+        fi
         purge_es=$SECONDS
-        printf "$line_format" '..' $VM_ID 0 0 0 'no' $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status '... ' >>${summary_file}
+        printf "$line_format" $vm_type $VM_ID 0 0 0 'no' $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
+        say '<- Done purging.'
     done
-    say "Prunning finished"
 
 }
 vzborg_restore() {
@@ -737,29 +754,30 @@ vzborg_restore() {
     storage_content=$(grep -A 99999 ${restore_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
 
     case ${borg_archive} in
-    *.tar) 
+    *.tar)
         if [[ ! "$storage_content" == *rootdir* ]]; then
             die "Storage \"${restore_storage}\" is not a containers storage"
         fi
         vm_type='CT'
-        guest_config="$( borg list --format='{bcomment}' "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
+        guest_config="$(borg list --format='{bcomment}' "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
         if echo "${guest_config}" | grep -q '^mp.:'; then
             # container has mount points, better to restore it using intermediate dump file
             guest_has_mount_points=true
         else
             # find root file system size
-            rootfs_size=$( echo "${guest_config}" | sed -n 's/^rootfs:.*size=\([0-9]*\).*/\1/p')
+            rootfs_size=$(echo "${guest_config}" | sed -n 's/^rootfs:.*size=\([0-9]*\).*/\1/p')
             # check if it is an unprivileged container
             if echo "${guest_config}" | grep -q '^unprivileged: 1'; then
                 unprivileged=1
             fi
         fi
         ;;
-    *.vma) 
+    *.vma)
         if [[ ! "$storage_content" == *images* ]]; then
             die "Storage \"${restore_storage}\" is not an images storage"
         fi
-       vm_type='VM' ;;
+        vm_type='VM'
+        ;;
     *) die "Option -b \"${borg_archive}\" is not a qemu or lxc valid backup file name" ;;
     esac
 
@@ -797,11 +815,11 @@ vzborg_version() {
     #   sane defaults
     # 0.5.0 (alfa)
     #   getdump, list commands
-    #   
+    #
     # 0.6.0 (alfa)
     #   store and show VM original conf file
     #   more info on borg comment field
-    #   
+    #
     # 0.7.0 (alfa)
     #   backup server configuration (ommited functionality)
     # 0.8.0 (alfa)
@@ -812,7 +830,7 @@ vzborg_version() {
     #   ask for contributions
     #   internationalization
     #   internationalization spanish
-    # 1.0 
+    # 1.0
 }
 
 # VzBorg main body
@@ -831,9 +849,9 @@ vzdump_mode='snapshot'
 vzdump_quiet=1
 
 # Containers configuration directory
-ct_conf_dir="/etc/pve/nodes/`hostname`/lxc/"
+ct_conf_dir="/etc/pve/nodes/$(hostname)/lxc/"
 # Qemu virtual machines configuration directory
-vm_conf_dir="/etc/pve/nodes/`hostname`/qemu-server/"
+vm_conf_dir="/etc/pve/nodes/$(hostname)/qemu-server/"
 
 # Load variables from default configuration file
 . /etc/vzborg/default

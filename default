@@ -35,30 +35,31 @@ ENCRYPTION_MODE=repokey-blake2
 # ENCRYPTION PASSPHRASE
 #
 # Put here your borg repository passphrase if you dont want being 
-# asked for it, for example if you are automating backups
-# this passphrase will be used if the borg repository is created
+# asked for it, for example if you are automating backups.
+# This passphrase will also be used if the borg repository is created
 # automatically on first backup
 VZBORG_PASSPHRASE='MySecretBorgRepositoryPassphrase'
 
-# NOTIFICATION OF BACKUP JOBS
+# NOTIFICATION OF VZBORG JOBS
 #
-# who recives the log info
-NOTIFY_TO="admin@example.com"
+# Uncomment and edit to send VzBorg statistics by mail
+#NOTIFY_TO="admin@example.com"
 
-# REPOSITORY PRUNNING
+# REPOSITORY PURGING
 # 
-# Borg prunes (gets rid of old backups) using keep settings
+# VzBorg purges (gets rid of old backups) using keep settings
 # You can configure here a default keep setting to use
-# when pruning your repository with vzborg
+# when purging your repository with VzBorg
 #
-# For detailed information about prunning see borg documentation:
+# For detailed information about purging (prunning in borgbackup parlance)
+# see borg backup documentation:
 # https://borgbackup.readthedocs.io/en/stable/usage/prune.html
 #
 DEFAULT_KEEP='--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'
 
 # COMPRESSION
 # 
-# Set a default compression for borg
+# Set a default compression
 DEFAULT_COMPRESSION="zstd,3"
 
 # TEMPORARY DIR
