@@ -50,7 +50,7 @@ VzBorg accepts one of the following commands:
 |  help     |Show VzBorg help.                   |
 |  info     |Show repository or backup info      |
 |  list     |List backups in a repository.       |
-|  prune    |Prune (purge) a repository.         | 
+|  purge    |Purge a repository.                 | 
 |  restore  |Restore backup from a repository.   |
 |  version  |Show VzBorg, Borg and PVE versions. |
             
@@ -58,25 +58,25 @@ Examples:
 
 `vzborg list`
 
-List backups in repository
+List backups in default repository
 
 `vzborg backup -i 121`
 
-Backup guest with ID 121
+Backup guest with ID 121 to default repository
 
 ### Additional options
 | Option          | Value      |Use with commands       |Description                             |
 |:----------------|:-----------|:-----------------------|:---------------------------------------|
-|-b (--backup)    |BACKUP_NAME |delete//info/restore    |Name of an existing backup (archive)    |
-|-c (--config)    |CONFIG_NAME |all except help/version |Name of a config file in /etc/vzborg dir|
-|-d (--dry-run)   |            |backup/prune            |Just perform a simulation               |
+|-b (--backup)    |backup_name |delete//info/restore    |Name of an existing backup (archive)    |
+|-c (--config)    |config_name |all except help/version |Name of a config file in /etc/vzborg dir|
+|-d (--dry-run)   |            |purge                   |Just perform a simulation               |
 |-f (--force)     |            |restore                 |Force overwrite of existing VM/CT       |
 |-h (--help)      |            |all except help/version |Display command help. Requires -c option|
-|-i (--id)        |VM_ID       |backup/discard/restore  |PVE VM/CT ID or list of PVE VM/CT IDs   |
-|-k (--keep)      |RETENTION   |prune                   |List of retention settings              |
-|-m (--mode)      |MODE        |backup                  |vzdump mode (default = snapshot)        |
-|-r (--repository)|REPOSITORY  |all except help/version |Borg repository                         |
-|-s (--storage)   |STORAGE     |getdump/restore         |Proxmox storage (default = local)       |
+|-i (--id)        |vm_id       |backup/discard/restore  |PVE VM/CT ID or list of PVE VM/CT IDs   |
+|-k (--keep)      |retention   |purge                   |List of retention settings              |
+|-m (--mode)      |mode        |backup                  |vzdump mode (default = snapshot)        |
+|-r (--repository)|repository  |all except help/version |Borg repository                         |
+|-s (--storage)   |storage     |getdump/restore         |Proxmox storage (default = local)       |
 
 ### Configuration file:
 
@@ -139,15 +139,16 @@ List all backups of guests with IDs 1230, 1040 and 2077 existing in local reposi
 
 `vzborg getdump -b vzborg-13998-2020_03_20-13_08_35.tar -s backups`
 
-Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file in PVE storage backups (the file will be recreated as the compressed file vzdump-lxc-13998-2020_03_20-13_08_35.tar.lzo)
+Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file in PVE storage backups 
+(the file will be recreated as the compressed file vzdump-lxc-13998-2020_03_20-13_08_35.tar.lzo)
 
-`vzborg prune -i '101 102 307'`
+`vzborg purge -i '101 102 307'`
 
-Prune or purge backups of guests with IDs 101, 102 and 307, on default repository, using default retentions.
+Purge backups of guests with IDs 101, 102 and 307, on default repository, using default retentions.
 
-`vzborg prune -i '101 102 307' -k '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
+`vzborg purge -i '101 102 307' -k '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
 
-Prune or purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly an 2 yearly backups.
+Purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly an 2 yearly backups.
 
 ## License
 Licensed under GNU Affero General Public License, version 3.
