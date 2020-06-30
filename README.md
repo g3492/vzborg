@@ -72,7 +72,7 @@ Backup guest with ID 121 to default repository
 |-d (--dry-run)   |            |purge                   |Just perform a simulation               |
 |-f (--force)     |            |restore                 |Force overwrite of existing VM/CT       |
 |-h (--help)      |            |all except help/version |Display command help. Requires -c option|
-|-i (--id)        |vm_id       |backup/discard/restore  |PVE VM/CT ID or list of PVE VM/CT IDs   |
+|-i (--id)        |vm_id       |backup/discard/purge    |PVE VM/CT ID or list of PVE VM/CT IDs   |
 |-k (--keep)      |retention   |purge                   |List of retention settings              |
 |-m (--mode)      |mode        |backup                  |vzdump mode (default = snapshot)        |
 |-r (--repository)|repository  |all except help/version |Borg repository                         |
@@ -116,9 +116,13 @@ or
 
 Show help about restore command.
 
-`vzborg backup -i '101 102 307'`
+`vzborg backup --id 201`
 
-Backup guests 101, 102 and 307 with default mode snapshot, to the default repository using default keep settings (rettention).
+Backup guest 201 to default repository with default mode snapshot.
+
+`vzborg backup --id '101 102 307' --mode stop --purge`
+
+Backup guests 101, 102 and 307 with mode stop to default repository purging with default retention settings.
 
 `vzborg restore -b vzborg-300-2020_03_20-13_11_46.vma -i 1300 -s local_lvm`
 
@@ -148,7 +152,7 @@ Purge backups of guests with IDs 101, 102 and 307, on default repository, using 
 
 `vzborg purge -i '101 102 307' -k '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
 
-Purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly an 2 yearly backups.
+Purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly and 2 yearly backups.
 
 ## License
 Licensed under GNU Affero General Public License, version 3.

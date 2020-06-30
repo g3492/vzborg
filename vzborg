@@ -241,6 +241,7 @@ vzborg_backup() {
         printf "$line_format" $vm_type $VM_ID $(($backup_es / 3600)) $(($backup_es % 3600 / 60)) $(($backup_es % 60)) $backup_status $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
     done
 }
+
 vzborg_delete() {
     if [[ ${show_command_help} = true ]]; then
         echo
@@ -248,85 +249,83 @@ vzborg_delete() {
         echo "  vzborg delete"
         echo
         echo "USAGE"
-        echo "  vzborg delete (-b|--backup) <backup_name> \\"
+        echo "   vzborg delete ((-b|--backup) <backup_name>) | ((-i|--id) (<vmid>|<vmid_list>|all)) \\"
         echo "                   [ (-r|--repository) <repository>]"
         echo
-        echo "  <backup_name> <string> (see vzborg name of a backup of a guest)"
-        echo "  <repository>: <path> (see vzborg config help)"
-        echo
-        echo "DESCRIPTION"
-        echo "  The vzborg delete command, removes or deletes just one backup from the"
-        echo "  default repository, or from the one indicated with the -r or --repository option."
-        echo
-        echo "EXAMPLES"
-        echo
-        echo "  Delete backup vzborg-1301-2020_03_20-13_18_45.vma"
-        echo "  from default repository"
-        echo "    vzborg delete -b vzborg-1301-2020_03_20-13_18_45.vma"
-        echo
-        echo "  Delete backup vzborg-141-2020_03_20-13_18_45.tar in repository /mnt/borgrepo"
-        echo "    vzborg delete -b vzborg-141-2020_03_20-13_18_45.tar -r /mnt/borgrepo"
-        echo
-        exit
-    fi
-
-    local borg_archive=${backup_name}
-    local dump_type=''
-    case ${borg_archive} in
-    *.tar) dump_type='lxc' ;;
-    *.vma) dump_type='qemu' ;;
-    *.tmp) dump_type='tmp' ;;
-    *) die "Option -b \"${borg_archive}\" is not a valid backup name" ;;
-    esac
-    # TODO Check if archive borg_archive exist in borg repo.
-
-    say "Deleting backup ${borg_archive} from repository"
-    borg delete ${vzborg_repo}::${borg_archive}
-}
-vzborg_discard() {
-    if [[ ${show_command_help} = true ]]; then
-        echo
-        echo "NAME"
-        echo "  vzborg discard"
-        echo
-        echo "USAGE"
-        echo "   vzborg discard (-i|--id) (<vmid>|<vmid_list>) \\"
-        echo "                   [ (-r|--repository) <repository>]"
-        echo
+        echo "  <backup_name> <string> (name of a backup of a guest)"
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
         echo "  <repository>: <path> (see vzborg config help)"
         echo
         echo "DESCRIPTION"
-        echo "  The vzborg discard command, removes or deletes all existing backups of a guest, or "
-        echo "  list of guest, from the default repository, or from the one indicated"
-        echo "  with the -r or --repository option."
+        echo "  The vzborg delete command removes backups from the default repository,"
+        echo "  or from the one indicated with the (-r|--repository) option."
+        echo "  When used with the (-b|--backup) option, only the specified backup is removed."
+        echo "  With the (-i|--id) option you can remove all existing backups of a guest, all the"
+        echo "  backups of a list of guests, or all the backups in the repository."
         echo
         echo "EXAMPLES"
         echo
-        echo "  Discard all backups of VM/CT with Ids 123, 124 and 201 in default repository:"
-        echo "    vzborg discard -i '123 124 201'"
+        echo "  delete all backups of VM/CT with Ids 123, 124 and 201 in default repository:"
+        echo "    vzborg delete --id '123 124 201'"
         echo
-        echo "  Discard (remove) all backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
-        echo "    vzborg discard -i 303 -r /var/lib/vz/borg"
+        echo "  delete all backups of VM/CT with ID 303 in borg repository /var/lib/vz/borg:"
+        echo "    vzborg delete --id 303 --repository /var/lib/vz/borg"
+        echo
+        echo "  Delete backup vzborg-1301-2020_03_20-13_18_45.vma"
+        echo "  from default repository"
+        echo "    vzborg delete -b vzborg-1301-2020_03_20-13_18_45.vma"
+        echo
+        echo "  Delete backup vzborg-141-2020_03_20-13_18_45.tar in repository /mnt/vzborgrepo"
+        echo "    vzborg delete -b vzborg-141-2020_03_20-13_18_45.tar -r /mnt/vzborgrepo"
+        echo
+        echo "  Delete all backups in repository /mnt/vzborgrepo"
+        echo "    vzborg delete --id all --repository /mnt/vzborgrepo"
         echo
         exit
     fi
 
     local archives=''
     local borg_format='--format={archive}{SPACE}'
+    local borg_archive=${backup_name}
+    local dump_type=''
 
-    # Process virtual machines IDs
-    if ! [ -z "${vm_ids}" ]; then
-        for VM_ID in $vm_ids; do
-            archives=$(borg list ${borg_format} "${vzborg_repo}" -P ${archs_prefix}-${VM_ID})
-            say "Discarding backups of guest ${VM_ID}"
-            for archive in $archives; do
-                say "- Deleting ${archive}"
-                borg delete "${vzborg_repo}::${archive}"
-            done
-        done
+    if ! [ -z "${borg_archive}" ]; then
+        # delete specific backup
+        case ${borg_archive} in
+        *.tar) dump_type='lxc' ;;
+        *.vma) dump_type='qemu' ;;
+        *.tmp) dump_type='tmp' ;;
+        *) die "Option -b \"${borg_archive}\" is not a valid backup name" ;;
+        esac
+        # TODO Check if archive borg_archive exist in borg repo.
+        say "Deleting backup ${borg_archive}"
+        borg delete -s ${vzborg_repo}::${borg_archive}
     fi
+    # Virtual machines IDs
+    if ! [ -z "${vm_ids}" ]; then
+        # delete by guest id
+        if [[ $vm_ids = "all" ]]; then
+            # delete all backups
+            archives=$(borg list ${borg_format} "${vzborg_repo}" -P ${archs_prefix}- | sort )
+            say "> Deleting all backups from repository ${vzborg_repo}"
+            for archive in $archives; do
+                say "-> Deleting ${archive}"
+                borg delete -s "${vzborg_repo}::${archive}"
+            done
+        else
+            # delete all backups of given guests
+            for VM_ID in $vm_ids; do
+                archives=$(borg list ${borg_format} "${vzborg_repo}" -P ${archs_prefix}-${VM_ID})
+                say "Deleting all backups of guest ${VM_ID}"
+                for archive in $archives; do
+                    say "-> Deleting ${archive}"
+                    borg delete -s "${vzborg_repo}::${archive}"
+                done
+            done
+        fi
+    fi
+
 }
 vzborg_getdump() {
     if [[ ${show_command_help} = true ]]; then
@@ -420,10 +419,9 @@ vzborg_help() {
     echo "     COMMAND  Description"
     echo
     echo "     backup   Perform a backup job."
-    echo "     delete   Delete a specific backup."
-    echo "     discard  Discard all backups of given guests."
+    echo "     delete   Delete a specific, or all backups of a guest."
     echo "     getdump  Recreate a dump file from a backup."
-    echo "     help     Show this help, or help about a command."
+    echo "     help     Show this help."
     echo "     info     Show info about a backup or repository"
     echo "     list     List backups in a repository."
     echo "     purge    Purge (prune) a repository."
@@ -445,7 +443,7 @@ vzborg_help() {
     echo "  -h|--help                        - Display command help."
     echo "                                     use: all except help and version"
     echo "  -i|--id (<vmid>|<vmid_list>|all) - PVE guest ID, list of PVE guest IDs, or \"all\""
-    echo "                                     use: backup|discard|list|restore"
+    echo "                                     use: backup|delete|list|restore"
     echo "  -k|--keep <retention_options>    - List of borg keep settings (retention options)."
     echo "                                     use: backup/purge"
     echo "  -m|--mode <mode>                 - vzdump mode <snapshot|stop|suspend> (default=snapshot)."
@@ -707,35 +705,46 @@ vzborg_restore() {
         echo "  vzborg restore"
         echo
         echo "USAGE"
-        echo "  vzborg restore (-b|--backup) <backup_name>  \\"
-        echo "                   (-i|--id) <vmid> \\"
+        echo "  vzborg restore ( (-b|--backup) <backup_name> | (-i|--id) <vmid>) \\"
+        echo "                   [ (-n|--new-id)] \\"
         echo "                   [ (-f|--force)] \\"
         echo "                   [ (-r|--repository) <repository>] \\"
         echo "                   [ (-s|--storage) <storage>]"
         echo
-        echo "  <backup_name>: <string> (name of a vzborg backup of a guest)"
-        echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
-        echo "  <repository>: <path> (see vzborg config help)"
-        echo "  <storage>: <string> (Proxmox storage where the dump file must be recreated"
+        echo "  <backup_name>: <string> (name of a vzborg backup of a guest)."
+        echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest."
+        echo "  <repository>: <path> (see vzborg config help)."
+        echo "  <storage>: <string> (Proxmox storage where the guest must be restored."
         echo
         echo "DESCRIPTION"
-        echo "  The vzborg restore command, restores a guest from a given backup in the"
-        echo "  default repository, or the one specified with the -r or --repository option,"
-        echo "  to the given pve storage (or local if none specified), using the id provided "
-        echo "  with the -i or --id option."
-        echo "  If in the PVE storage a guest exists with the provided id, if you want to "
-        echo "  override it, with the backup, you should use the -f or --force option. "
+        echo "  The vzborg restore command, restores a guest from a backup in the"
+        echo "  default repository, or from the one specified with the -r or --repository option,"
+        echo "  to a given pve storage (or local if none specified)."
+        echo "  You can use the (-b|--backup) option, to restore a specific backup."
+        echo "  If you use the (-i|--id) option, the last backup of the specified guest"
+        echo "  would be restored."
+        echo "  Using the (-n|--new-id) option, you can specify with which ID, the guest must"
+        echo "  be restored. If it is not specified, vzborg will use the original guest ID."
+        echo "  If you want the restore operation to override an existing guest, then you should"
+        echo "  use the (-f|--force) option."
         echo
         echo "EXAMPLES"
         echo
+        echo "  Restore the last backup of guest 124 from default repository"
+        echo "  to default storage, forcing overwrite."
+        echo "    vzborg restore --id 124 --force"
+        echo
+        echo "  Restore the last backup of guest 207 from default repository"
+        echo "  to PVE storage thinssd, as guest 215."
+        echo "    vzborg restore --id 207 --storage thinssd --new-id 215"
+        echo
         echo "  Restore VM 1301 from backup vzborg-1301-2020_03_20-13_18_45.vma"
-        echo "  from default borg repository with id 1432 to storage local_lvm"
-        echo "  forcing overwrite if guest 1432 exists:"
-        echo "    vzborg restore -b vzborg-1301-2020_03_20-13_18_45.vma -s local-lvm -i 1432 -f"
+        echo "  from default borg repository to storage local_lvm with new id 1432."
+        echo "    vzborg restore -b vzborg-1301-2020_03_20-13_18_45.vma -s local-lvm --new-id 1432"
         echo
         echo "  Restore CT 141 from backup vzborg-141-2020_03_20-13_18_45.tar"
-        echo "  in borg repository /mnt/vzborgrepo to default storage local with id 304"
-        echo "    vzborg restore -b vzborg-141-2020_03_20-13_18_45.tar -r /mnt/vzborgrepo -i 304"
+        echo "  in borg repository /mnt/vzborgrepo to default storage local."
+        echo "    vzborg restore -b vzborg-141-2020_03_20-13_18_45.tar -r /mnt/vzborgrepo"
         echo
         exit
     fi
@@ -951,8 +960,7 @@ esac
 # Execute command function
 case ${vzborg_command} in
 backup) vzborg_backup ;;
-delete) vzborg_delete ;;
-discard) vzborg_discard ;;
+delete | discard) vzborg_delete ;;
 getdump) vzborg_getdump ;;
 help) vzborg_help ;;
 info) vzborg_info ;;
