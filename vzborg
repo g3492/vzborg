@@ -31,6 +31,22 @@ debug() {
 version_greater_equal() {
     printf '%s\n%s\n' "$2" "$1" | sort -V -C
 }
+is_valid_guest_id() {
+	if [[ -z ${1:-''} ]]; then
+        # empty value
+        exit 1
+	fi
+    local re='^[1-9]([0-9]+)?$'
+    if ! [[ $1 =~ $re ]] ; then
+        # not an integer that does not begin with 0
+        exit 1
+    fi
+    if [ "$1" -lt 100 ] || [ "$1" -gt 999999999 ]; then
+       # invalid range
+        exit 1
+    fi
+    exit 0
+}
 conn_dict() {
     # return a definition of a bash dictionary, with the components of a connection string
     # warning: supports only full remote paths. Relative or home based paths will not work
@@ -706,13 +722,14 @@ vzborg_restore() {
         echo
         echo "USAGE"
         echo "  vzborg restore ( (-b|--backup) <backup_name> | (-i|--id) <vmid>) \\"
-        echo "                   [ (-n|--new-id)] \\"
+        echo "                   [ (-n|--new-id) <new_vmid>] \\"
         echo "                   [ (-f|--force)] \\"
         echo "                   [ (-r|--repository) <repository>] \\"
         echo "                   [ (-s|--storage) <storage>]"
         echo
         echo "  <backup_name>: <string> (name of a vzborg backup of a guest)."
-        echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest."
+        echo "  <vmid>: <integer> (100 - N) The (unique) ID of a backed up PVE guest."
+        echo "  <new_vmid>: <integer> (100 - N) The new ID of the restored guest."
         echo "  <repository>: <path> (see vzborg config help)."
         echo "  <storage>: <string> (Proxmox storage where the guest must be restored."
         echo
@@ -751,15 +768,62 @@ vzborg_restore() {
 
     local restore_storage=${pve_storage:-local}
     local borg_archive=${backup_name}
-    local restore_id=${vm_ids:-0}
+    local backup_id=${vm_ids:-''}
+    local restore_id=${vm_new_id:-''}
     local vm_type=''
     local guest_config=''
     local guest_has_mount_points=false
     local rootfs_size=32
     local unprivileged=0
 
-    # TODO Check if archive borg_archive exist in borg repo.
-    # Get storage allowed content
+    # check if required options where informed and are valid
+    if [ -z "${borg_archive}" ]; then
+        # no backup name to restore
+        if [[ -z ${backup_id} ]]; then
+            # no backup id
+            die "vzborg restore requires a backup name or backup guest ID."
+        fi
+        if ! (is_valid_guest_id "${backup_id}") ; then
+            # invalid guest ID for backup
+            die "\"${backup_id}\" is not a valid guest ID number."
+        fi
+        # get the name of the last backup of the guest and assign it to the borg_archive variable
+        borg_archive=$(vzborg list -i ${backup_id} | sort -r | head -1 | cut -d" " -f1)
+    else
+        # check if backup exists in repository
+        local find_archive=$(borg list "${vzborg_repo}" -P "${borg_archive}")
+        if [[ -z $find_archive ]]; then
+            die "Backup ${borg_archive} does not exist in repository ${vzborg_repo}."
+        fi
+        # get backup guest ID from backup name
+        backup_id=$(echo "${borg_archive}" | cut -d"-" -f2 | cut -d"-" -f1)
+        if ! (is_valid_guest_id "${backup_id}") ; then
+            # invalid guest ID for backup
+            die "Could not get a valid guest ID number from backup name \"${borg_archive}\"."
+        fi
+    fi
+
+    if [[ -z ${restore_id} ]]; then
+        # no restore id. Restore to original id.
+        restore_id="${backup_id}"
+    fi
+    if ! (is_valid_guest_id "${restore_id}") ; then
+        # invalid guest ID for backup
+        die "The new id for restoring \"${restore_id}\" is not a valid guest ID number."
+    fi    
+    if [[ -z  ${force_overwrite} ]]; then
+        # force overwrite not specified, check if restore id exists
+        if [ -e "${ct_conf_dir}${restore_id}.conf" ]; then
+            #   Exists a container with that ID
+            die "A container with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
+        else
+            if [ -e "${vm_conf_dir}${restore_id}.conf" ]; then
+                # exists a virtual machine with that ID
+                die "A qemu VM with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
+            fi
+        fi
+    fi
+
     storage_content=$(grep -A 99999 ${restore_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
 
     case ${borg_archive} in
@@ -796,7 +860,7 @@ vzborg_restore() {
             borg extract --stdout ${vzborg_repo}::${borg_archive} | qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}
         else
             if [[ ${guest_has_mount_points} = true ]]; then
-                echo 'restoring to temporary file'
+                #echo 'Guest has mount points, restoring to temporary file'
                 local temp_dump_dir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
                 local dump_file=${borg_archive/${archs_prefix}/vzdump-lxc}
                 borg extract --stdout ${vzborg_repo}::${borg_archive} | lzop -5 --output=${temp_dump_dir}/${dump_file}.lzo -
@@ -853,6 +917,7 @@ output_file=''
 purge_on_backup=false
 show_command_help=false
 vm_ids=''
+vm_new_id=''
 vzborg_command=''
 vzdump_mode='snapshot'
 vzdump_quiet=1
@@ -906,6 +971,10 @@ while [ $# -gt 0 ]; do
         ;;
     -m | --mode)
         vzdump_mode="$2"
+        shift 2
+        ;;
+    -n | --new-id)
+        vm_new_id="$2"
         shift 2
         ;;
     -p | --purge)
