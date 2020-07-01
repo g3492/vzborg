@@ -22,8 +22,11 @@ say() {
     echo -e vzborg: ${1}
 }
 die() {
-    say "Error: ${1}" >&2
+    say "Error, ${1}" >&2
     exit 1
+}
+sorry() {
+    say "Sorry, ${1}" >&2
 }
 debug() {
     echo -e "#[DEBUG] $(date "+%F %T") ${1}" >&1
@@ -257,7 +260,6 @@ vzborg_backup() {
         printf "$line_format" $vm_type $VM_ID $(($backup_es / 3600)) $(($backup_es % 3600 / 60)) $(($backup_es % 60)) $backup_status $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
     done
 }
-
 vzborg_delete() {
     if [[ ${show_command_help} = true ]]; then
         echo
@@ -383,15 +385,19 @@ vzborg_getdump() {
     local dump_file=''
     local dump_storage=${pve_storage:-local}
     local dump_type=''
+    local find_archive=''
     local storage_content=''
 
     case ${borg_archive} in
     *.tar) dump_type='lxc' ;;
     *.vma) dump_type='qemu' ;;
-    *) die "Option -b \"${borg_archive}\" is not a valid backup name" ;;
+    *) die "option -b \"${borg_archive}\" is not a valid backup name" ;;
     esac
-    # TODO Check if archive borg_archive exist in borg repo.
-
+    # check if backup exists in repository
+    find_archive=$(borg info ${vzborg_repo}::${borg_archive})
+    if [[ -z $find_archive ]]; then
+        die "backup ${borg_archive} does not exist in repository ${vzborg_repo}."
+    fi
     #  Recreate normal proxmox backup file name (add qemu/lxc type to file name)
     dump_file=${borg_archive/${archs_prefix}/vzdump-${dump_type}}
 
@@ -401,13 +407,18 @@ vzborg_getdump() {
     lxc) compression_level=7 ;;
     esac
 
-    storage_content=$(grep -A 99999 ${dump_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
+    storage_content=$(sed -n "/: ${dump_storage}/,/:/{s/^[[:space:]]*content //p }" /etc/pve/storage.cfg)
     if [[ ! "$storage_content" == *backup* ]]; then
         die "Storage \"${dump_storage}\" is not a backup storage"
     fi
 
     # Get dumps directory from storage configuration file
     dump_dir=$(grep -A 99999 ${dump_storage} /etc/pve/storage.cfg | grep -m1 path | sed -n -e 's/^.*path //p')/dump
+ 
+    # Check if file exist
+    if [[ -f ${dump_dir}/${dump_file}.lzo ]]; then
+        die "dump file ${dump_dir}/${dump_file} already exists."
+    fi
 
     say "Recreating dump file ${dump_file}.lzo into ${dump_storage} storage"
     borg extract --stdout ${vzborg_repo}::${borg_archive} | lzop -${compression_level} --output=${dump_dir}/${dump_file}.lzo -
@@ -766,96 +777,138 @@ vzborg_restore() {
         exit
     fi
 
-    local restore_storage=${pve_storage:-local}
-    local borg_archive=${backup_name}
     local backup_id=${vm_ids:-''}
-    local restore_id=${vm_new_id:-''}
-    local vm_type=''
+    local borg_archive=${backup_name}
+    local borg_format='--format={archive}{NL}'
+    local find_archive=
     local guest_config=''
     local guest_has_mount_points=false
+    local ids_=''
+    local restore_by_backup_name=false
+    local restore_id=${vm_new_id:-''}
+    local restore_list_of_guests=false
+    local restore_storage=${pve_storage:-local}
     local rootfs_size=32
     local unprivileged=0
+    local vm_type=''
 
     # check if required options where informed and are valid
     if [ -z "${borg_archive}" ]; then
         # no backup name to restore
         if [[ -z ${backup_id} ]]; then
-            # no backup id
-            die "vzborg restore requires a backup name or backup guest ID."
-        fi
-        if ! (is_valid_guest_id "${backup_id}") ; then
-            # invalid guest ID for backup
-            die "\"${backup_id}\" is not a valid guest ID number."
-        fi
-        # get the name of the last backup of the guest and assign it to the borg_archive variable
-        borg_archive=$(vzborg list -i ${backup_id} | sort -r | head -1 | cut -d" " -f1)
+            # no backup ids
+            die "restore requires a backup name or backup guest ID."
+        else
+            # Backup id/ids informed.
+            # Check if a list of ids was informed.
+            ids_=( ${backup_id} )
+            if [[  ${#ids_[@]} -gt 1  ]]; then
+                # Have a list of ids to restore.
+                restore_list_of_guests=true
+                # Check if new restore id was informed.
+            else
+                if [[ ${backup_id} = 'all' ]]; then
+                    # Restore all guests. Get a list of Ids of all backups.
+                    restore_list_of_guests=true
+                    backup_id=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+                fi
+            fi
+            # Check if new restore id was informed, and there is a list of guest to restore.
+            if ! [[ -z ${restore_id} ]] && [[ ${restore_list_of_guests} = true  ]]; then
+                die "you can not use (-n|--new-id) option with a list of IDs or \"all\"."
+            fi
+        fi 
     else
+        if ! [[ -z ${backup_id} ]]; then
+            # no backup id
+            die "vzborg restore requires a (-b|--backup) or a (-i|--id) option, but not both."
+        fi
         # check if backup exists in repository
-        local find_archive=$(borg list "${vzborg_repo}" -P "${borg_archive}")
+        find_archive=$(borg info ${vzborg_repo}::${borg_archive})
         if [[ -z $find_archive ]]; then
-            die "Backup ${borg_archive} does not exist in repository ${vzborg_repo}."
+            die "backup ${borg_archive} does not exist in repository ${vzborg_repo}."
         fi
         # get backup guest ID from backup name
         backup_id=$(echo "${borg_archive}" | cut -d"-" -f2 | cut -d"-" -f1)
         if ! (is_valid_guest_id "${backup_id}") ; then
             # invalid guest ID for backup
-            die "Could not get a valid guest ID number from backup name \"${borg_archive}\"."
+            die "could not get a valid guest ID number from backup name \"${borg_archive}\"."
         fi
+        restore_by_backup_name=true
     fi
-
-    if [[ -z ${restore_id} ]]; then
-        # no restore id. Restore to original id.
+    # get info about restore storage
+    storage_content=$(sed -n "/: ${restore_storage}/,/:/{s/^[[:space:]]*content //p }" /etc/pve/storage.cfg)
+    if [[ -z ${storage_content} ]]; then
+        # invalid guest ID for backup
+        die "the restore storage \"${restore_storage}\" is not valid."
+    fi 
+    if [[ -z ${restore_id} ]] && [[ ${restore_list_of_guests} = false ]]; then
+        # no restore id.(-n|--new-id) informed. Restore to original id.
         restore_id="${backup_id}"
     fi
-    if ! (is_valid_guest_id "${restore_id}") ; then
-        # invalid guest ID for backup
-        die "The new id for restoring \"${restore_id}\" is not a valid guest ID number."
-    fi    
-    if [[ -z  ${force_overwrite} ]]; then
-        # force overwrite not specified, check if restore id exists
-        if [ -e "${ct_conf_dir}${restore_id}.conf" ]; then
-            #   Exists a container with that ID
-            die "A container with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
-        else
-            if [ -e "${vm_conf_dir}${restore_id}.conf" ]; then
-                # exists a virtual machine with that ID
-                die "A qemu VM with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
+
+    # end initial validation
+    ############
+
+    # Loop through each VM ID
+    for VM_ID in $backup_id; do
+        if [[ ${restore_list_of_guests} = true ]]; then
+            # Restore to original id.
+            restore_id="${VM_ID}"
+        fi
+        if [[ -z  ${force_overwrite} ]]; then
+            # force overwrite not specified, check if restore id exists
+            if [ -e "${ct_conf_dir}${restore_id}.conf" ]; then
+                #   Exists a container with that ID
+                sorry "a container with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
+                continue
+            else
+                if [ -e "${vm_conf_dir}${restore_id}.conf" ]; then
+                    # exists a virtual machine with that ID
+                    sorry "a qemu VM with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
+                    continue
+                fi
             fi
         fi
-    fi
-
-    storage_content=$(grep -A 99999 ${restore_storage} /etc/pve/storage.cfg | grep -m1 content | sed -n -e 's/^.*content //p')
-
-    case ${borg_archive} in
-    *.tar)
-        if [[ ! "$storage_content" == *rootdir* ]]; then
-            die "Storage \"${restore_storage}\" is not a containers storage"
-        fi
-        vm_type='CT'
-        guest_config="$(borg list --format='{bcomment}' "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
-        if echo "${guest_config}" | grep -q '^mp.:'; then
-            # container has mount points, better to restore it using intermediate dump file
-            guest_has_mount_points=true
-        else
-            # find root file system size
-            rootfs_size=$(echo "${guest_config}" | sed -n 's/^rootfs:.*size=\([0-9]*\).*/\1/p')
-            # check if it is an unprivileged container
-            if echo "${guest_config}" | grep -q '^unprivileged: 1'; then
-                unprivileged=1
+        if [[ ${restore_by_backup_name} = false ]]; then
+            # Get the backup name of the last backup for the guest
+            borg_archive=$(borg list ${borg_format} ${vzborg_repo} -P ${archs_prefix}-${VM_ID}- | sort -r | head -1)
+            if [[ -z ${borg_archive} ]]; then
+                sorry "guest ${VM_ID} has no backup in repository ${vzborg_repo}."
+                continue
             fi
         fi
-        ;;
-    *.vma)
-        if [[ ! "$storage_content" == *images* ]]; then
-            die "Storage \"${restore_storage}\" is not an images storage"
-        fi
-        vm_type='VM'
-        ;;
-    *) die "Option -b \"${borg_archive}\" is not a qemu or lxc valid backup file name" ;;
-    esac
+        case ${borg_archive} in
+        *.tar)
+            if [[ ! "$storage_content" == *rootdir* ]]; then
+                sorry "Storage \"${restore_storage}\" is not a containers storage"
+                continue
+            fi
+            vm_type='CT'
+            guest_config="$(borg list --format='{bcomment}' "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
+            if echo "${guest_config}" | grep -q '^mp.:'; then
+                # container has mount points, better to restore it using intermediate dump file
+                guest_has_mount_points=true
+            else
+                # find root file system size
+                rootfs_size=$(echo "${guest_config}" | sed -n 's/^rootfs:.*size=\([0-9]*\).*/\1/p')
+                # check if it is an unprivileged container
+                if echo "${guest_config}" | grep -q '^unprivileged: 1'; then
+                    unprivileged=1
+                fi
+            fi
+            ;;
+        *.vma)
+            if [[ ! "$storage_content" == *images* ]]; then
+                say "Storage \"${restore_storage}\" is not an images storage"
+                continue
+            fi
+            vm_type='VM'
+            ;;
+        *) sorry "\"${borg_archive}\" is not a qemu or lxc valid backup name" ;;
+        esac
 
-    if ((${restore_id} >= 100 && ${restore_id} <= 999999999)); then
-        say "Restoring vzdump backup file ${borg_archive} as ${vm_type} ${restore_id} to storage ${restore_storage}"
+        say "> Restoring backup ${borg_archive} as ${vm_type} ${restore_id} to storage ${restore_storage}"
         if [[ ${vm_type} == 'VM' ]]; then
             borg extract --stdout ${vzborg_repo}::${borg_archive} | qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}
         else
@@ -870,10 +923,9 @@ vzborg_restore() {
                 borg extract --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
             fi
         fi
-        say "Restore finished"
-    else
-        die "Option -i \"${restore_id}\" is not a valid VM/CT ID"
-    fi
+        say "< Restore finished"
+        echo
+    done
 }
 vzborg_version() {
     echo 'vzborg 0.6.0'
@@ -975,6 +1027,10 @@ while [ $# -gt 0 ]; do
         ;;
     -n | --new-id)
         vm_new_id="$2"
+        if ! (is_valid_guest_id "${vm_new_id}") ; then
+        # invalid guest ID for backup
+        die "the new id for restoring \"${vm_new_id}\" is not a valid guest ID number."
+        fi
         shift 2
         ;;
     -p | --purge)
