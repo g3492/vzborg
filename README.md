@@ -150,7 +150,7 @@ List all backups in the default repository.
 
 List all backups of guest with ID 303 existing on remote repository ssh://example.com:22/mnt/remote_borg_repo
 
-`vzborg list -i '1230 1040 2077' -r /mnt/vzborg`
+`vzborg list --id '1230 1040 2077' --repository /mnt/vzborg`
 
 List all backups of guests with IDs 1230, 1040 and 2077 existing in local repository /mnt/vzborg
 
@@ -164,7 +164,7 @@ Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file 
 
 Purge backups of guests with IDs 101, 102 and 307, on default repository, using default retentions.
 
-`vzborg purge --id all --keep 'keep-last=2'`
+`vzborg purge --id all --keep '--keep-last=2'`
 
 Purge backups keeping only the last 2 of each guest.
 
