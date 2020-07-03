@@ -87,7 +87,7 @@ vzborg_backup() {
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
         echo "  <retention_options> <string> (see vzborg purge command help)"
-        echo "  <repository>: <path> (see vzborg config help)"
+        echo "  <repository>: <path> (full repository path)"
         echo
         echo "DESCRIPTION"
         echo "  vzborg backup command lets you perform a backup job of one, several, or all"
@@ -273,7 +273,7 @@ vzborg_delete() {
         echo "  <backup_name> <string> (name of a backup of a guest)"
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
-        echo "  <repository>: <path> (see vzborg config help)"
+        echo "  <repository>: <path> (full repository path)"
         echo
         echo "DESCRIPTION"
         echo "  The vzborg delete command removes backups from the default repository,"
@@ -357,7 +357,7 @@ vzborg_getdump() {
         echo "                   [ (-s|--storage) <storage>]"
         echo
         echo "  <backup_name>: <string> (name of a vzborg backup of a guest)"
-        echo "  <repository>: <path> (see vzborg config help)"
+        echo "  <repository>: <path> (full repository path)"
         echo "  <storage>: <string> (Proxmox storage where the dump file must be recreated"
         echo
         echo "DESCRIPTION"
@@ -535,7 +535,7 @@ vzborg_info() {
         echo "                   [ (-r|--repository) <repository>]"
         echo
         echo "  <backup_name>: <string> (name of a vzborg backup of a guest)"
-        echo "  <repository>: <path> (see vzborg config help)"
+        echo "  <repository>: <path> (full repository path)"
         echo
         echo "DESCRIPTION"
         echo "  The vzborg info command when used with a backup name, will give statistical information"
@@ -593,7 +593,7 @@ vzborg_list() {
         echo
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
-        echo "  <repository>: <path> (see vzborg config help)"
+        echo "  <repository>: <path> (full repository path)"
         echo
         echo "DESCRIPTION"
         echo "  The vzborg list command, when used without the -i or --id option,  will display a list of "
@@ -641,13 +641,12 @@ vzborg_purge() {
         echo
         echo "USAGE"
         echo "  vzborg purge ( -i|--id) ( <vmid>|<vmid_list>|all) \\"
-        echo "                   [ ( -r|--repository) <repository>] \\"
-        echo "                   [ ( -k|--keep) <retention_options>]"
+        echo "                   [ ( -k|--keep) <retention_options>]\\"
+        echo "                   [ ( -r|--repository) <repository>] "
         echo
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
-        echo "  <repository>: <path> (see vzborg config help)"
-        echo "  <retention_options>: <string> of space separated keep options"
+        echo "  <retention_options>: <string> List of space separated keep options"
         echo "    The following are the most common options, where <n> is the number of backups"
         echo "    of that type to keep, or a negative number to keep them all:"
         echo "      --keep-last=<n>"
@@ -656,6 +655,7 @@ vzborg_purge() {
         echo "      --keep-weekly=<n>"
         echo "      --keep-monthly=<n>"
         echo "      --keep-yearly=<n>"
+        echo "  <repository>: <path> (full repository path)"
         echo
         echo "DESCRIPTION"
         echo "  The vzborg purge command performs a purge (prune in borgbackup parlance) operation in the "
@@ -686,6 +686,11 @@ vzborg_purge() {
     local purge_es=0
     local purge_status=''
     local guest=''
+
+    # Check if new restore id was informed, and there is a list of guest to restore.
+    if [[ -z ${vm_ids} ]]; then
+        die "vzborg purge requires a valid (-i|--id) option."
+    fi
 
     # purge all backups
     if [[ $vm_ids = "all" ]]; then
@@ -741,7 +746,7 @@ vzborg_restore() {
         echo "  <backup_name>: <string> (name of a vzborg backup of a guest)."
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a backed up PVE guest."
         echo "  <new_vmid>: <integer> (100 - N) The new ID of the restored guest."
-        echo "  <repository>: <path> (see vzborg config help)."
+        echo "  <repository>: <path> (full repository path)."
         echo "  <storage>: <string> (Proxmox storage where the guest must be restored."
         echo
         echo "DESCRIPTION"
@@ -928,7 +933,7 @@ vzborg_restore() {
     done
 }
 vzborg_version() {
-    echo 'vzborg 0.6.0'
+    echo 'vzborg 0.8.0'
     borg --version
     pveversion
     # 0.3.1 (alfa)
@@ -948,13 +953,10 @@ vzborg_version() {
     # 0.7.0 (alfa)
     #   backup server configuration (ommited functionality)
     # 0.8.0 (alfa)
-    #   basic debian package
-    #   automated tests
+    #   restore by id functionality
     #   updated and reformated help
     # 0.9 (beta)
     #   ask for contributions
-    #   internationalization
-    #   internationalization spanish
     # 1.0
 }
 
