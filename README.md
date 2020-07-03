@@ -1,10 +1,10 @@
 # VzBorg utility
-## **Deduplicated, encrypted backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ )**
+## **Deduplicated, encrypted, local or remote backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ )**
 
 With VzBorg you can:
 - Backup, restore, delete, list and maintain your PVE backups in a flexible and efficient way.
 - Use default retention settings to keep your desired number of hourly, daily, weekly, monthly and yearly backups.
-- Set up automated backups to remote repositories, simply setting appropriate ssh keys.
+- Set up automated backups to remote repositories, simply using ssh keys.
 
 VzBorg uses vzdump and [BorgBackup](https://www.borgbackup.org/) to allow deduplicated, compressed backups of Proxmox guests, in an optionally encrypted repository.
 
@@ -44,8 +44,7 @@ VzBorg accepts one of the following commands:
 | Command   | Description                        |
 |:----------|:-----------------------------------|
 |  backup   |Perform a backup job.               |
-|  delete   |Delete a specific backup.           |
-|  discard  |Discard all backups of given guests.|
+|  delete   |Delete backups.                     |
 |  getdump  |Recreate a dump file from a backup. |
 |  help     |Show VzBorg help.                   |
 |  info     |Show repository or backup info      |
@@ -75,6 +74,7 @@ Backup guest with ID 121 to default repository
 |-i (--id)        |vm_id       |backup/discard/purge    |PVE VM/CT ID or list of PVE VM/CT IDs   |
 |-k (--keep)      |retention   |purge                   |List of retention settings              |
 |-m (--mode)      |mode        |backup                  |vzdump mode (default = snapshot)        |
+|-n (--new-id)    |vm_id       |restore                 |New vm_id for restored backup           |
 |-r (--repository)|repository  |all except help/version |Borg repository                         |
 |-s (--storage)   |storage     |getdump/restore         |Proxmox storage (default = local)       |
 
@@ -120,19 +120,27 @@ Show help about restore command.
 
 Backup guest 201 to default repository with default mode snapshot.
 
+`vzborg backup --id all`
+
+Backup all guest in proxmox node to default repository.
+
 `vzborg backup --id '101 102 307' --mode stop --purge`
 
-Backup guests 101, 102 and 307 with mode stop to default repository purging with default retention settings.
+Backup guests 101, 102 and 307 with mode stop to default repository, purging with default retention settings.
 
-`vzborg restore -b vzborg-300-2020_03_20-13_11_46.vma -i 1300 -s local_lvm`
+`vzborg restore --backup vzborg-300-2020_03_20-13_11_46.vma --new-id 1300 --storage local_lvm`
 
 Restore VM from backup with name vzborg-300-2020_03_20-13_11_46.vma as VM with ID 1300 to storage local_lvm.
+
+`vzborg restore --id 102 --storage local_lvm --force`
+
+Restore last backup of VM 102 forcing overwrite if guest exists.
 
 `vzborg list`
 
 List all backups in the default repository.
 
-`vzborg list -i 303 -r ssh://example.com:22/mnt/remote_borg_repo`
+`vzborg list --id 303 --repository ssh://example.com:22/mnt/remote_borg_repo`
 
 List all backups of guest with ID 303 existing on remote repository ssh://example.com:22/mnt/remote_borg_repo
 
@@ -141,16 +149,20 @@ List all backups of guest with ID 303 existing on remote repository ssh://exampl
 List all backups of guests with IDs 1230, 1040 and 2077 existing in local repository /mnt/vzborg
 
 
-`vzborg getdump -b vzborg-13998-2020_03_20-13_08_35.tar -s backups`
+`vzborg getdump --backup vzborg-13998-2020_03_20-13_08_35.tar --storage backups`
 
 Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file in PVE storage backups 
 (the file will be recreated as the compressed file vzdump-lxc-13998-2020_03_20-13_08_35.tar.lzo)
 
-`vzborg purge -i '101 102 307'`
+`vzborg purge --id '101 102 307'`
 
 Purge backups of guests with IDs 101, 102 and 307, on default repository, using default retentions.
 
-`vzborg purge -i '101 102 307' -k '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
+`vzborg purge --id all --keep 'keep-last=2'`
+
+Purge backups keeping only the last 2 of each guest.
+
+`vzborg purge --id '101 102 307' --keep '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
 
 Purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly and 2 yearly backups.
 
