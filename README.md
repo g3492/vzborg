@@ -64,19 +64,19 @@ List backups in default repository
 Backup guest with ID 121 to default repository
 
 ### Options
-| Option          | Value      |Use with commands       |Description                             |
-|:----------------|:-----------|:-----------------------|:---------------------------------------|
-|-b (--backup)    |backup_name |delete//info/restore    |Name of an existing backup (archive)    |
-|-c (--config)    |config_name |all except help/version |Name of a config file in /etc/vzborg dir|
-|-d (--dry-run)   |            |purge                   |Just perform a simulation               |
-|-f (--force)     |            |restore                 |Force overwrite of existing VM/CT       |
-|-h (--help)      |            |all except help/version |Display command help                    |
-|-i (--id)        |vm_id       |backup/discard/purge    |PVE VM/CT ID or list of PVE VM/CT IDs   |
-|-k (--keep)      |retention   |purge                   |List of retention settings              |
-|-m (--mode)      |mode        |backup                  |vzdump mode (default = snapshot)        |
-|-n (--new-id)    |vm_id       |restore                 |New vm_id for restored backup           |
-|-r (--repository)|repository  |all except help/version |Borg repository                         |
-|-s (--storage)   |storage     |getdump/restore         |Proxmox storage (default = local)       |
+| Option          | Value      |Use with commands          |Description                             |
+|:----------------|:-----------|:--------------------------|:---------------------------------------|
+|-b (--backup)    |backup_name |delete/getdump/info/restore|Name of an existing backup (archive)    |
+|-c (--config)    |config_name |all except help/version    |Name of a config file in /etc/vzborg dir|
+|-d (--dry-run)   |            |purge                      |Just perform a simulation               |
+|-f (--force)     |            |restore                    |Force overwrite of existing VM/CT       |
+|-h (--help)      |            |all except help/version    |Display command help                    |
+|-i (--id)        |vm_id       |backup/delete/purge/restore|PVE VM/CT ID or list of PVE VM/CT IDs   |
+|-k (--keep)      |retention   |backup/purge               |List of retention settings              |
+|-m (--mode)      |mode        |backup                     |vzdump mode (default = snapshot)        |
+|-n (--new-id)    |vm_id       |restore                    |New vm_id for restored backup           |
+|-r (--repository)|repository  |all except help/version    |Borg repository                         |
+|-s (--storage)   |storage     |getdump/restore            |Proxmox storage (default = local)       |
 
 ### Configuration file:
 
@@ -91,6 +91,12 @@ You can instruct vzborg to read an additional configuration file with the -c opt
 
 Backup guest with ID 121 reading additional configuration file /etc/vzborg/remoterepo.
 
+### Repositories
+The `vzborg backup` command, automatically creates a repository using default values, if the related directory does not exist.
+
+The best way to start with VzBorg is to edit the `/etc/vzborg/default` file with some sensible values, and run a backup of a small guest.
+
+After that, you will have a repository with one backup to test other VzBorg commands.
 
 ### Backup names
 
