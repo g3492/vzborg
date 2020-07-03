@@ -3,8 +3,8 @@
 
 With VzBorg you can:
 - Backup, restore, delete, list and maintain your PVE backups in a flexible and efficient way.
-- Use default retention settings to keep your desired number of hourly, daily, weekly, monthly and yearly backups.
-- Set up automated backups to remote repositories, simply using ssh keys.
+- Use default retention settings to keep your desired number of last, hourly, daily, weekly, monthly and yearly backups.
+- Set up simple automated backups to remote repositories using ssh keys.
 
 VzBorg uses vzdump and [BorgBackup](https://www.borgbackup.org/) to allow deduplicated, compressed backups of Proxmox guests, in an optionally encrypted repository.
 
@@ -63,14 +63,14 @@ List backups in default repository
 
 Backup guest with ID 121 to default repository
 
-### Additional options
+### Options
 | Option          | Value      |Use with commands       |Description                             |
 |:----------------|:-----------|:-----------------------|:---------------------------------------|
 |-b (--backup)    |backup_name |delete//info/restore    |Name of an existing backup (archive)    |
 |-c (--config)    |config_name |all except help/version |Name of a config file in /etc/vzborg dir|
 |-d (--dry-run)   |            |purge                   |Just perform a simulation               |
 |-f (--force)     |            |restore                 |Force overwrite of existing VM/CT       |
-|-h (--help)      |            |all except help/version |Display command help. Requires -c option|
+|-h (--help)      |            |all except help/version |Display command help                    |
 |-i (--id)        |vm_id       |backup/discard/purge    |PVE VM/CT ID or list of PVE VM/CT IDs   |
 |-k (--keep)      |retention   |purge                   |List of retention settings              |
 |-m (--mode)      |mode        |backup                  |vzdump mode (default = snapshot)        |
@@ -173,4 +173,4 @@ Licensed under GNU Affero General Public License, version 3.
 They are welcome [here!](https://github.com/g3492/vzborg/issues)
 
 ## Important note
-VzBorg is under development. Use it at your own risk
+VzBorg is under development. Use it at your own risk.
