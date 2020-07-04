@@ -164,11 +164,11 @@ Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file 
 
 Purge backups of guests with IDs 101, 102 and 307, on default repository, using default retentions.
 
-`vzborg purge --id all --keep '--keep-last=2'`
+`vzborg purge --id all --keep-last=2`
 
 Purge backups keeping only the last 2 of each guest.
 
-`vzborg purge --id '101 102 307' --keep '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'`
+`vzborg purge --id '101 102 307' --keep-weekly=4 --keep-monthly=6 --keep-yearly=2`
 
 Purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly and 2 yearly backups.
 

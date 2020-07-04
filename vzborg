@@ -81,17 +81,34 @@ vzborg_backup() {
         echo "USAGE"
         echo "  vzborg backup (-i|--id) (<vmid>|<vmid_list>|all) \\"
         echo "                   [ (-m|--mode) (snapshot|stop|suspend)] \\"
-        echo "                   [ (-p|--purge) [ (-k|--keep) <retention_options>]] \\"
+        echo "                   [ (-p|--purge)  \\"
+        echo "                     [ ( -k|--keep) <n>] \\"
+        echo "                     [ --keep-last=<n> ] \\"
+        echo "                     [ --keep-hourly=<n>] \\"
+        echo "                     [ --keep-daily=<n>] \\"
+        echo "                     [ --keep-weekly=<n>] \\"
+        echo "                     [ --keep-monthly=<n>] \\"
+        echo "                     [ --keep-yearly=<n>] \\"
+        echo "                   ] \\"
         echo "                   [ (-r|--repository) <repository>]"
         echo
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
-        echo "  <retention_options> <string> (see vzborg purge command help)"
+        echo "  Retention options:"
+        echo "    The following are the valid retention options, where <n> is the number of backups"
+        echo "    of that type to keep, or a negative number to keep them all:"
+        echo "      ( -k|--keep) <n>   Keep last <n> backups"
+        echo "      --keep-last=<n>"
+        echo "      --keep-hourly=<n>"
+        echo "      --keep-daily=<n>"
+        echo "      --keep-weekly=<n>"
+        echo "      --keep-monthly=<n>"
+        echo "      --keep-yearly=<n>"
         echo "  <repository>: <path> (full repository path)"
         echo
         echo "DESCRIPTION"
         echo "  vzborg backup command lets you perform a backup job of one, several, or all"
-        echo "  the guests on a Proxmox node."
+        echo "  the guests on a Proxmox node, optionally purging the repository."
         echo
         echo "  When executed, the vzborg backup command will create the related repository"
         echo "   if it does not exist, using the default values."
@@ -115,7 +132,7 @@ vzborg_backup() {
         echo "    a cron job, using the \"vzborg purge\" command."
         echo
         echo "    Be careful when purging. If for example you run the backup with just "
-        echo "    a \" -k '--keep-daily=2'\" option, you will end up with only the last 2 daily "
+        echo "    a \"--keep-daily=2\" option, you will end up with only the last 2 daily "
         echo "    backups of the guests involved, and that may be not what you want."
         echo
         echo "EXAMPLES"
@@ -131,7 +148,7 @@ vzborg_backup() {
         echo "    vzborg backup --id all --purge"
         echo
         echo "  Backup all guests on the proxmox node, purging the repository with a specific retention setting"
-        echo "    vzborg backup --id all --purge --keep '--keep-daily=2 --keep-weekly=4 --keep-monthly=3 --keep-yearly=1'"
+        echo "    vzborg backup --id all --purge --keep-daily=2 --keep-weekly=4 --keep-monthly=3 --keep-yearly=1"
         echo
         exit
     fi
@@ -643,14 +660,21 @@ vzborg_purge() {
         echo
         echo "USAGE"
         echo "  vzborg purge ( -i|--id) ( <vmid>|<vmid_list>|all) \\"
-        echo "                   [ ( -k|--keep) <retention_options>]\\"
+        echo "                   [ ( -k|--keep) <n>] \\"
+        echo "                   [ --keep-last=<n> ] \\"
+        echo "                   [ --keep-hourly=<n>] \\"
+        echo "                   [ --keep-daily=<n>] \\"
+        echo "                   [ --keep-weekly=<n>] \\"
+        echo "                   [ --keep-monthly=<n>] \\"
+        echo "                   [ --keep-yearly=<n>] \\"
         echo "                   [ ( -r|--repository) <repository>] "
         echo
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
         echo "  <vmid_list>: <string> (space separated list of <vmid>s"
-        echo "  <retention_options>: <string> List of space separated keep options"
-        echo "    The following are the most common options, where <n> is the number of backups"
+        echo "  Retention options:"
+        echo "    The following are the valid retention options, where <n> is the number of backups"
         echo "    of that type to keep, or a negative number to keep them all:"
+        echo "      ( -k|--keep) <n>   Keep last <n> backups"
         echo "      --keep-last=<n>"
         echo "      --keep-hourly=<n>"
         echo "      --keep-daily=<n>"
@@ -669,18 +693,18 @@ vzborg_purge() {
         echo "EXAMPLES"
         echo
         echo "  Purge default repository keeping 7 end of day and 4 additional end of week backups of guest 203"
-        echo "    vzborg purge -i 203 -k '--keep-daily=7 --keep-weekly=4'"
+        echo "    vzborg purge -i 203 --keep-daily=7 --keep-weekly=4"
         echo
         echo "  Purge remote repository ssh://remote.server.com:22/mnt/remote_borg_repo keeping only the last 3 backups"
         echo "  of all guests"
-        echo "    vzborg purge -i all -k '--keep-last=3' -r ssh://remote.server.com:22/mnt/remote_borg_repo "
+        echo "    vzborg purge -i all --keep 3  -r ssh://remote.server.com:22/mnt/remote_borg_repo "
         echo
         echo "  Purge default repository keeping 7 end of day, 4 additional end of week, and 2 end of month backups"
         echo "  of guests 101, 102 and 201"
-        echo "    vzborg purge --id '101 102 201' --keep '--keep-daily=7 --keep-weekly=4 --keep-monthly=2'"
+        echo "    vzborg purge --id '101 102 201' --keep-daily=7 --keep-weekly=4 --keep-monthly=2"
         echo
         echo "  Purge default repository keeping 4 end of week backups, and all end of month backups of guest 302"
-        echo "    vzborg purge --id 302 -k '--keep-monthly=-1 --keep-weekly=4'"
+        echo "    vzborg purge --id 302 --keep-monthly=-1 --keep-weekly=4"
         exit
     fi
 
@@ -970,6 +994,7 @@ readonly archs_prefix=vzborg
 backup_name=''
 dry_run=''
 force_overwrite=''
+keep_setting=''
 output_file=''
 purge_on_backup=false
 show_command_help=false
@@ -1023,8 +1048,12 @@ while [ $# -gt 0 ]; do
         shift 2
         ;;
     -k | --keep)
-        keep_setting="$2"
+        keep_setting="${keep_setting} --keep-last=${2}"
         shift 2
+        ;;
+    --keep-last=* | --keep-hourly=* | --keep-daily=* | --keep-weekly=* | --keep-monthly=* | --keep-yearly=*)
+        keep_setting="${keep_setting} ${1}"
+        shift 1
         ;;
     -m | --mode)
         vzdump_mode="$2"
