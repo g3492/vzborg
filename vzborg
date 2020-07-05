@@ -738,7 +738,7 @@ vzborg_purge() {
             vm_hostname=${guest_[vm_type]}
         else
             vm_type='--'
-            vm_hostname='No Backup with this ID'
+            vm_hostname='No_Backup_with_this_ID'
             prune_status='failed'
             printf "$line_format" $vm_type $VM_ID 0 0 0 'no' 0 0 0 $prune_status $vm_hostname >>${summary_file}
             continue
