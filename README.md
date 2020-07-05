@@ -50,19 +50,9 @@ VzBorg accepts one of the following commands:
 |  info     |Show repository or backup info      |
 |  list     |List backups in a repository.       |
 |  purge    |Purge a repository.                 | 
-|  restore  |Restore backup from a repository.   |
+|  restore  |Restore backups from a repository.  |
 |  version  |Show VzBorg, Borg and PVE versions. |
             
-Examples:
-
-`vzborg list`
-
-List backups in default repository
-
-`vzborg backup -i 121`
-
-Backup guest with ID 121 to default repository
-
 ### Options
 | Option          | Value      |Use with commands          |Description                             |
 |:----------------|:-----------|:--------------------------|:---------------------------------------|

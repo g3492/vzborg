@@ -1002,6 +1002,7 @@ vm_ids=''
 vm_new_id=''
 vzborg_command=''
 vzdump_mode='snapshot'
+vzborg_repo=''
 vzdump_quiet=1
 
 # Containers configuration directory
@@ -1099,7 +1100,9 @@ default_compression=${DEFAULT_COMPRESSION:-'zstd,3'}
 default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'}
 encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
 temp_dir=${VZBORG_TEMP_DIR:-'/tmp'}
-vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
+if [[ -z ${vzborg_repo} ]]; then
+    vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
+fi
 
 # Execute some code before running the command
 case ${vzborg_command} in
