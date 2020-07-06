@@ -213,6 +213,7 @@ vzborg_backup() {
         fi
     fi
     say "> Host $(hostname) - Backup job started for guests $vm_ids." |& tee -a ${detail_file}
+    say "> Repository ${vzborg_repo}." |& tee -a ${detail_file}
     if [[ ${purge_on_backup} = true ]]; then
         say "> with purge option and retention \"${retention}\"." |& tee -a ${detail_file}
     fi
@@ -249,7 +250,7 @@ vzborg_backup() {
 
         say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
-        if vzdump ${VM_ID} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" \
+        if vzdump ${VM_ID} --dumpdir ${tmp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create -s "${backup_compression}" "${backup_comment}" \
             ${vzborg_repo}::${backup_name}.tmp - |& tee -a ${detail_file}; then
             # rename temporary archive
             borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
@@ -723,6 +724,7 @@ vzborg_purge() {
         vm_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
     fi
     say "> Host $(hostname) - Purge job started for guests $vm_ids." |& tee -a ${detail_file}
+    say "> Repository ${vzborg_repo}." |& tee -a ${detail_file}
     say "> with retention \"${retention}\"." |& tee -a ${detail_file}
     # Loop through each ID
     for VM_ID in $vm_ids; do
@@ -1003,7 +1005,7 @@ vm_new_id=''
 vzborg_command=''
 vzdump_mode='snapshot'
 vzborg_repo=''
-vzdump_quiet=1
+vzdump_quiet=0
 
 # Containers configuration directory
 ct_conf_dir="/etc/pve/nodes/$(hostname)/lxc/"
