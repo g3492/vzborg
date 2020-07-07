@@ -250,7 +250,7 @@ vzborg_backup() {
 
         say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
-        if vzdump ${VM_ID} --dumpdir ${tmp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create --chunker-params 9,16,12,4095 -s "${backup_compression}" "${backup_comment}" \
+        if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create --chunker-params 9,16,12,4095 -s "${backup_compression}" "${backup_comment}" \
             ${vzborg_repo}::${backup_name}.tmp - |& tee -a ${detail_file}; then
             # rename temporary archive
             borg rename ${vzborg_repo}::${backup_name}.tmp ${backup_name}
