@@ -62,7 +62,22 @@ DEFAULT_KEEP='--keep-daily=2 --keep-weekly=4 --keep-monthly=12 --keep-yearly=2'
 # Set a default compression
 DEFAULT_COMPRESSION="zstd,3"
 
+# CHUNKER PARAMETERS
+# Borg 1.1 default
+# DEFAULT_CHUNKER='19,23,21,4095'
+# Classic default
+# DEFAULT_CHUNKER='10,23,16,4095'
+# Others options
+# DEFAULT_CHUNKER='10,14,12,4095'
+DEFAULT_CHUNKER='9,16,12,4095'
+
 # TEMPORARY DIR
 # 
 # Set a default directory for temporary files
 VZBORG_TEMP_DIR="/tmp"
+
+# EXTRA BORG OPTIONS
+#
+# Example for backing up to rsync.net borg service
+# BORG_EXTRA='--remote-path=borg1'
+BORG_EXTRA=''
