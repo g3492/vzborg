@@ -717,6 +717,7 @@ vzborg_purge() {
     local purge_es=0
     local purge_status=''
     local guest=''
+    local purge_ids=''
 
     # Check if new restore id was informed, and there is a list of guest to restore.
     if [[ -z ${vm_ids} ]]; then
@@ -725,16 +726,18 @@ vzborg_purge() {
 
     # purge all backups
     if [[ $vm_ids = "all" ]]; then
-        vm_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+        purge_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+    else
+        purge_ids=${vm_ids}
     fi
-    say "> Host $(hostname) - Purge job started for guests $vm_ids." |& tee -a ${detail_file}
+    say "> Host $(hostname) - Purge job started for guests $purge_ids." |& tee -a ${detail_file}
     say "> Repository ${vzborg_repo}." |& tee -a ${detail_file}
     say "> with retention \"${retention}\"." |& tee -a ${detail_file}
     # Loop through each ID
-    for VM_ID in $vm_ids; do
+    for VM_ID in $purge_ids; do
         say "-> Purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
         # Get guest information from backup
-        guest=$(vzborg list -i ${VM_ID} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
+        guest=$(vzborg list -i ${VM_ID} -r ${vzborg_repo} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
 
         if [ ! -z "${guest}" ]; then
             guest='('$guest')'            
