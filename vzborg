@@ -70,7 +70,7 @@ conn_dict() {
     local path="$(echo $url | cut -d/ -f2-)"
     case ${path} in
     \.* | ~*) ;;
-    *) path=\${path} ;;
+    *) path=/"${path}" ;;
     esac
 
     echo "([url]=${url} [proto]=${proto} [user]=${user} [host]=${host} [port]=${port} [path]=${path})"
