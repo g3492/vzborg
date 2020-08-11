@@ -255,9 +255,10 @@ vzborg_backup() {
         say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
         if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
-            ${vzborg_repo}::${backup_name}.tmp - |& tee -a ${detail_file}; then
+            ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
             # rename temporary archive
-            borg rename ${borg_extra} ${vzborg_repo}::${backup_name}.tmp ${backup_name}
+            # this adds 10 minutes to each backup
+            #borg rename ${borg_extra} ${vzborg_repo}::${backup_name}.tmp ${backup_name}
             backup_status='ok'
         else
             backup_status='failed'
