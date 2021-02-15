@@ -192,7 +192,7 @@ vzborg_backup() {
     if [[ ! ${vzborg_repo} == *@* ]]; then
         # Not a remote repository
         # Create the borg repository if the repository does not exist
-        if [ ! -d ${vzborg_repo} ]; then
+    if ! [[ -d ${vzborg_repo} || -f "${vzborg_repo}/config" ]]; then
             mkdir -p ${vzborg_repo}
             borg init ${borg_extra} --encryption=${encryption_mode} ${vzborg_repo}
 
@@ -474,6 +474,7 @@ vzborg_help() {
     echo "     help     Show this help."
     echo "     info     Show info about a backup or repository"
     echo "     list     List backups in a repository."
+    echo "     list     List backups in a repository with their size information."
     echo "     purge    Purge (prune) a repository."
     echo "     restore  Restore backup from a repository."
     echo "     version  Show VzBorg, Borg and PVE version."
@@ -536,6 +537,8 @@ vzborg_help() {
     echo "    vzborg list"
     echo "    vzborg list -i 303 --repository ssh://example.com:22/mnt/remote_borg_repo"
     echo "    vzborg list -i '1230 1040 2077' -r /mnt/vzborg"
+    echo "    vzborg list-size"
+    echo "    vzborg list-size -i 303"
     echo "    vzborg getdump --backup vzborg-13998-2020_03_20-13_08_35.tar --storage local_lvm"
     echo "    vzborg purge -i '101 102 307'"
     echo "    vzborg purge -i '101 102 307' --keep '--keep-weekly=4 --keep-monthly=6 --keep-yearly=2'"
@@ -656,6 +659,67 @@ vzborg_list() {
     fi
     # Remove configuration file info and sort by archive name
     cat ${list_file} | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" | sort
+    rm ${list_file}
+}
+vzborg_list_size() {  
+    if [[ ${show_command_help} = true ]]; then
+        echo
+        echo "NAME"
+        echo "  vzborg list-size"
+        echo
+        echo "USAGE"
+        ECHO "  vzborg list-size [ (-i|--id) (VMID|VMIDS_LIST)] \\"
+        echo "                   [ (-r|--repository) <repository>]"
+        echo
+        echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
+        echo "  <vmid_list>: <string> (space separated list of <vmid>s"
+        echo "  <repository>: <path> (full repository path)"
+        echo
+        echo "DESCRIPTION"
+        echo "  The vzborg list-size command, when used without the -i or --id option,  will display a list of "
+        echo "  all existing backups in the default repository, or in the one specified with the -r or "
+        echo "  --repository option."
+        echo "  When used with the -i or --id option, will dipslay a list of all existing backups for the"
+        echo "  specified guests."
+        echo
+        echo "  The list contains the original size, compressed size and duplicated size of a backup. If you need more info about a "
+        echo "  specific backup, use the vzborg info command."
+        echo
+        echo "EXAMPLES"
+        echo
+        echo "  List all backups in the default repository:"
+        echo "    vzborg list-size"
+        echo
+        echo "  List backups of guest with ID 303 in the repository /var/lib/vz/vzborg:"
+        echo "    vzborg list-size -i 303 -r /var/lib/vz/vzborg"
+        echo
+        exit
+    fi
+    # Set a default list format
+    local list_format='{archive} {bcomment}{NL}'
+    local borg_format="--format=${list_format}"
+
+    local list_file="$(mktemp ${temp_dir}/vzborg.XXXXXX)"
+
+    # Virtual machines IDs
+    if ! [ -z "${vm_ids}" ]; then
+        for VM_ID in $vm_ids; do
+            borg list ${borg_extra} "${borg_format}" "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >>${list_file}
+        done
+    else
+        # using --last 9999 would be faster but would need a rewrite of the code structure a bit
+        borg list ${borg_extra} "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >>${list_file}
+    fi
+    # Remove configuration file info and sort by archive name
+    list_of_files="$(cat ${list_file} | sed '/BEGIN_CONFIG>/,/<END_CONFIG/d' | sort | sed 's/\ .*$//')"
+    echo "                                               Original size      Compressed size    Deduplicated size"
+    for save_file in $list_of_files; do
+        borgoutput="$(borg info ${borg_extra} ${vzborg_repo} -P ${save_file} | grep 'This archive:' | sed 's/This archive:/'$save_file'/' | sort)"
+        echo "$borgoutput"
+    done
+    echo "----------------------------------------------------------------------------------------------------"
+    borgoutput="$(borg info ${borg_extra} ${vzborg_repo} | grep 'All archives:')"
+    echo "                     $borgoutput"
     rm ${list_file}
 }
 vzborg_purge() {
@@ -1140,6 +1204,7 @@ getdump) vzborg_getdump ;;
 help) vzborg_help ;;
 info) vzborg_info ;;
 list) vzborg_list ;;
+list-size) vzborg_list_size ;;
 purge) vzborg_purge ;;
 restore) vzborg_restore ;;
 version) vzborg_version ;;
@@ -1167,3 +1232,4 @@ backup | purge)
     rm -r ${detail_file} ${summary_file}
     ;;
 esac
+
