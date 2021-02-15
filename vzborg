@@ -468,16 +468,16 @@ vzborg_help() {
     echo
     echo "     COMMAND  Description"
     echo
-    echo "     backup   Perform a backup job."
-    echo "     delete   Delete a specific, or all backups of a guest."
-    echo "     getdump  Recreate a dump file from a backup."
-    echo "     help     Show this help."
-    echo "     info     Show info about a backup or repository"
-    echo "     list     List backups in a repository."
-    echo "     list     List backups in a repository with their size information."
-    echo "     purge    Purge (prune) a repository."
-    echo "     restore  Restore backup from a repository."
-    echo "     version  Show VzBorg, Borg and PVE version."
+    echo "     backup    Perform a backup job."
+    echo "     delete    Delete a specific, or all backups of a guest."
+    echo "     getdump   Recreate a dump file from a backup."
+    echo "     help      Show this help."
+    echo "     info      Show info about a backup or repository"
+    echo "     list      List backups in a repository."
+    echo "     list-size List backups in a repository with their size information."
+    echo "     purge     Purge (prune) a repository."
+    echo "     restore   Restore backup from a repository."
+    echo "     version   Show VzBorg, Borg and PVE version."
     echo
     echo "  Hint: Use \"vzborg <COMMAND> -h\" to get specific help about a command"
     echo
