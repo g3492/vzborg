@@ -48,19 +48,20 @@ After the \<COMMAND\> VzBorg only uses options. Specified, but not used options,
 
 VzBorg accepts one of the following commands:
 
-| Command   | Description                        |
-|:----------|:-----------------------------------|
-|  backup   |Perform a backup job.               |
-|  delete   |Delete backups.                     |
-|  getdump  |Recreate a dump file from a backup. |
-|  help     |Show VzBorg help.                   |
-|  info     |Show repository or backup info      |
-|  list     |List backups in a repository.       |
-|  purge    |Purge a repository.                 | 
-|  restore  |Restore backups from a repository.  |
-|  version  |Show VzBorg, Borg and PVE versions. |
+| Command    | Description                            |
+|:-----------|:---------------------------------------|
+|  backup    |Perform a backup job.                   |
+|  delete    |Delete backups.                         |
+|  getdump   |Recreate a dump file from a backup.     |
+|  help      |Show VzBorg help.                       |
+|  info      |Show repository or backup info          |
+|  list      |List backups in a repository.           |
+|  list-size |List backups in a repository with sizes.|
+|  purge     |Purge a repository.                     | 
+|  restore   |Restore backups from a repository.      |
+|  version   |Show VzBorg, Borg and PVE versions.     |
             
-### Options
+### Options:
 | Option          | Value      |Use with commands          |Description                             |
 |:----------------|:-----------|:--------------------------|:---------------------------------------|
 |-b (--backup)    |backup_name |delete/getdump/info/restore|Name of an existing backup (archive)    |
