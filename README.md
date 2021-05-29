@@ -3,10 +3,15 @@
 
 With VzBorg you can:
 - Backup, restore, delete, list and maintain your PVE backups in a flexible and efficient way.
-- Use default retention settings to keep your desired number of last, hourly, daily, weekly, monthly and yearly backups.
-- Set up simple automated backups to remote repositories using ssh keys.
+- Use retention settings to keep your desired number of last, hourly, daily, weekly, monthly and yearly backups.
+- Set up simple automated backups to remote locations using ssh keys.
 
 VzBorg uses vzdump and [BorgBackup](https://www.borgbackup.org/) to allow deduplicated, compressed backups of Proxmox guests, in an optionally encrypted repository.
+
+For remote backups, you can use your own server, virtual machine, or services like:
+- [rsync.net](https://www.rsync.net/products/borg.html/) Cloud Storage provider with support for borg.
+- [BorgBase](https://www.borgbase.com/) Borg hosting service
+- [Lima-Labs](https://storage.lima-labs.com/) NFS or SSH file system as a service provider with borg support (not tested yet)
 
 ## Requirements
 You need a proxmox 5.x or 6.x server with a suitable BorgBackup package installed. 
@@ -25,7 +30,9 @@ If you are running proxmox 5.x you must enable stretch-backports repository:
 
 `apt install -t stretch-backports borgbackup`
 
-If you want to use a remote repository, you need BorgBackup installed on the remote computer, with the same or a greater version, than the one in your proxmox server. If your remote repository is on another proxmox server, you can also install VzBorg on it.
+If you want to use a remote repository, you need BorgBackup installed on the remote computer, ideally with the same or a greater version.
+
+If your remote repository is on another proxmox server, you can eventually restore your backups on it, if you install VzBorg, and configure the repository as local. Warning: In this case it is not recommended to use that repository for local backups.
 
 ## Installation
 As user root in your Proxmox server run:
@@ -41,19 +48,20 @@ After the \<COMMAND\> VzBorg only uses options. Specified, but not used options,
 
 VzBorg accepts one of the following commands:
 
-| Command   | Description                        |
-|:----------|:-----------------------------------|
-|  backup   |Perform a backup job.               |
-|  delete   |Delete backups.                     |
-|  getdump  |Recreate a dump file from a backup. |
-|  help     |Show VzBorg help.                   |
-|  info     |Show repository or backup info      |
-|  list     |List backups in a repository.       |
-|  purge    |Purge a repository.                 | 
-|  restore  |Restore backups from a repository.  |
-|  version  |Show VzBorg, Borg and PVE versions. |
+| Command    | Description                            |
+|:-----------|:---------------------------------------|
+|  backup    |Perform a backup job.                   |
+|  delete    |Delete backups.                         |
+|  getdump   |Recreate a dump file from a backup.     |
+|  help      |Show VzBorg help.                       |
+|  info      |Show repository or backup info          |
+|  list      |List backups in a repository.           |
+|  list-size |List backups in a repository with sizes.|
+|  purge     |Purge a repository.                     | 
+|  restore   |Restore backups from a repository.      |
+|  version   |Show VzBorg, Borg and PVE versions.     |
             
-### Options
+### Options:
 | Option          | Value      |Use with commands          |Description                             |
 |:----------------|:-----------|:--------------------------|:---------------------------------------|
 |-b (--backup)    |backup_name |delete/getdump/info/restore|Name of an existing backup (archive)    |
@@ -65,6 +73,7 @@ VzBorg accepts one of the following commands:
 |-k (--keep)      |retention   |backup/purge               |List of retention settings              |
 |-m (--mode)      |mode        |backup                     |vzdump mode (default = snapshot)        |
 |-n (--new-id)    |vm_id       |restore                    |New vm_id for restored backup           |
+|-p (--purge)     |            |backup                     |Purge guest when backing up             |
 |-r (--repository)|repository  |all except help/version    |Borg repository                         |
 |-s (--storage)   |storage     |getdump/restore            |Proxmox storage (default = local)       |
 
@@ -82,11 +91,7 @@ You can instruct vzborg to read an additional configuration file with the -c opt
 Backup guest with ID 121 reading additional configuration file /etc/vzborg/remoterepo.
 
 ### Repositories
-The `vzborg backup` command, automatically creates a repository using default values, if the related directory does not exist.
-
-The best way to start with VzBorg is to edit the `/etc/vzborg/default` file with some sensible values, and run a backup of a small guest.
-
-After that, you will have a repository with one backup to test other VzBorg commands.
+The `vzborg backup` command, automatically creates the related borg repository, if it can not find it.
 
 ### Backup names
 
@@ -106,19 +111,22 @@ or
 
 `vzdump-qemu-105-2020_04_02-17_15_11.vma.lzo` for a virtual machine
 
+## First steps
 
-### Examples
+The best way to start with VzBorg is to edit the `/etc/vzborg/default` file with some sensible values, and run a back up of a small guest. Then you can try to restore it, backup it again, list, purge, etc.
+
+## Examples
 `vzborg restore -h`
 
 Show help about restore command.
 
 `vzborg backup --id 201`
 
-Backup guest 201 to default repository with default mode snapshot.
+Backup guest 201 with default options.
 
 `vzborg backup --id all`
 
-Backup all guest in proxmox node to default repository.
+Backup all guests in proxmox node with default options.
 
 `vzborg backup --id '101 102 307' --mode stop --purge`
 

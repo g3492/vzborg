@@ -28,6 +28,9 @@ die() {
 sorry() {
     say "Sorry, ${1}" >&2
 }
+divider() {
+    echo '------------------------------------------------------------------------------'
+}
 debug() {
     echo -e "#[DEBUG] $(date "+%F %T") ${1}" >&1
 }
@@ -49,31 +52,6 @@ is_valid_guest_id() {
         exit 1
     fi
     exit 0
-}
-conn_dict() {
-    # return a definition of a bash dictionary, with the components of a connection string
-    # warning: always requires port 
-    local connection_str=${1}
-    # extract the protocol
-    local proto="$(echo $connection_str | sed -e's,^\(.*://\).*,\1,g')"
-    # remove the protocol
-    local url=${connection_str/$proto/}
-    # extract the user (if any)
-    local user="$(echo $url | cut -d@ -f1)"
-    # extract the host and port
-    local hostport="$(echo ${url/$user@/} | cut -d/ -f1)"
-    # extract host without port
-    local host="$(echo $hostport | sed -e 's,:.*,,g')"
-    # try to extract the port
-    local port="$(echo $hostport | sed -e 's,^.*:,:,g' -e 's,.*:\([0-9]*\).*,\1,g' -e 's,[^0-9],,g')"
-    # extract the path (if any)
-    local path="$(echo $url | cut -d/ -f2-)"
-    case ${path} in
-    \.* | ~*) ;;
-    *) path=/"${path}" ;;
-    esac
-
-    echo "([url]=${url} [proto]=${proto} [user]=${user} [host]=${host} [port]=${port} [path]=${path})"
 }
 # VZBORG FUNCTIONS
 vzborg_backup() {
@@ -188,34 +166,18 @@ vzborg_backup() {
 
     fi
 
-    # Check if vzborg repo exists
-    if [[ ! ${vzborg_repo} == *@* ]]; then
-        # Not a remote repository
-        # Create the borg repository if the repository does not exist
-    if ! [[ -d ${vzborg_repo} || -f "${vzborg_repo}/config" ]]; then
-            mkdir -p ${vzborg_repo}
-            borg init ${borg_extra} --encryption=${encryption_mode} ${vzborg_repo}
-
-            echo "Borg repository ${vzborg_repo} with encryption ${encryption_mode} created" >>${detail_file}
-            echo "---------------------------" >>${detail_file}
-            echo '' >>${detail_file}
-        fi
-    else
-        # it is a remote repository
-        # extract connection components with conn_dict function
-        declare -A conn_="$(conn_dict ${vzborg_repo})"
-        local ssh_port=${conn_[port]:-22}
-
-        if ! ssh -p ${ssh_port} ${conn_[user]}@${conn_[host]} test -d ${conn_[path]} ; then
-            # remote repository does not exist. Create it
-            ssh -p ${ssh_port} ${conn_[user]}@${conn_[host]} "mkdir -p ${conn_[path]}"
-            borg init ${borg_extra} --encryption=${encryption_mode} ${vzborg_repo}
-
-            echo "Borg repository ${vzborg_repo} with encryption ${encryption_mode} created" >>${detail_file}
-            echo "---------------------------" >>${detail_file}
-            echo '' >>${detail_file}
+    #say "Checking repository" |& tee -a ${detail_file}
+    #borg info ${borg_extra} ${vzborg_repo} || borg init ${borg_extra}  	--make-parent-dirs --encryption=${encryption_mode} ${vzborg_repo}
+    say "Retrieving ${vzborg_repo} repository info" |& tee -a ${detail_file}
+    divider |& tee -a ${detail_file}
+    # Try to get repository info. On fail init repository.
+    if ! borg info ${borg_extra} ${vzborg_repo}; then
+        say "Creating ${vzborg_repo} repository" |& tee -a ${detail_file}
+        if ! borg init ${borg_extra}  	--make-parent-dirs --encryption=${encryption_mode} ${vzborg_repo}; then
+            die "Failed creating ${vzborg_repo} repository. Check your repository definition." |& tee -a ${detail_file}
         fi
     fi
+    divider |& tee -a ${detail_file}
     say "> Host $(hostname) - Backup job started for guests $vm_ids." |& tee -a ${detail_file}
     say "> Repository ${vzborg_repo}." |& tee -a ${detail_file}
     if [[ ${purge_on_backup} = true ]]; then
@@ -254,7 +216,7 @@ vzborg_backup() {
 
         say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
-        if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
+        if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --files-cache=disabled --stdin-name=vzborgdump --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
             ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
             # rename temporary archive
             # this adds 10 minutes to each backup
@@ -466,7 +428,7 @@ vzborg_help() {
     echo "COMMANDS"
     echo "  VzBorg must be used with one of the following commands:"
     echo
-    echo "     COMMAND  Description"
+    echo "     COMMAND   Description"
     echo
     echo "     backup    Perform a backup job."
     echo "     delete    Delete a specific, or all backups of a guest."
@@ -616,7 +578,7 @@ vzborg_list() {
         echo "  vzborg list"
         echo
         echo "USAGE"
-        ECHO "  vzborg list [ (-i|--id) (VMID|VMIDS_LIST)] \\"
+        echo "  vzborg list [ (-i|--id) (VMID|VMIDS_LIST)] \\"
         echo "                   [ (-r|--repository) <repository>]"
         echo
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
@@ -668,7 +630,7 @@ vzborg_list_size() {
         echo "  vzborg list-size"
         echo
         echo "USAGE"
-        ECHO "  vzborg list-size [ (-i|--id) (VMID|VMIDS_LIST)] \\"
+        echo "  vzborg list-size [ (-i|--id) (VMID|VMIDS_LIST)] \\"
         echo "                   [ (-r|--repository) <repository>]"
         echo
         echo "  <vmid>: <integer> (100 - N) The (unique) ID of a PVE guest"
@@ -791,25 +753,25 @@ vzborg_purge() {
 
     # purge all backups
     if [[ $vm_ids = "all" ]]; then
-        purge_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+        purge_ids=$(borg list ${borg_extra} --format={archive}{NL} "${vzborg_repo}" -P ${archs_prefix}- | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
     else
         purge_ids=${vm_ids}
     fi
-    say "> Host $(hostname) - Purge job started for guests $purge_ids." |& tee -a ${detail_file}
-    say "> Repository ${vzborg_repo}." |& tee -a ${detail_file}
-    say "> with retention \"${retention}\"." |& tee -a ${detail_file}
+    say "> Host $(hostname) - Purge job started for guests $purge_ids" |& tee -a ${detail_file}
+    say "> Repository ${vzborg_repo}" |& tee -a ${detail_file}
+    say "> with retention \"${retention}\"" |& tee -a ${detail_file}
     # Loop through each ID
     for VM_ID in $purge_ids; do
         say "-> Purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
         # Get guest information from backup
-        guest=$(vzborg list -i ${VM_ID} -r ${vzborg_repo} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
+        guest=$(borg list ${borg_extra} --format="{archive} {bcomment}{NL}" ${vzborg_repo} -P ${archs_prefix}-${VM_ID} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
 
         if [ ! -z "${guest}" ]; then
             guest='('$guest')'            
             # generate array with recovered backup info
             declare -A guest_="${guest}"
             vm_type=${guest_[vm_type]}
-            vm_hostname=${guest_[vm_type]}
+            vm_hostname=${guest_[vm_hostname]}
         else
             vm_type='--'
             vm_hostname='No_Backup_with_this_ID'
@@ -826,7 +788,7 @@ vzborg_purge() {
         fi
         purge_es=$SECONDS
         printf "$line_format" $vm_type $VM_ID 0 0 0 'no' $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
-        say '<- Done purging.'
+        say "<- Done purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
     done
 
 }
@@ -1078,7 +1040,6 @@ vzborg_command=''
 vzdump_mode='snapshot'
 vzborg_repo=''
 vzdump_quiet=0
-
 
 # Containers configuration directory
 ct_conf_dir="/etc/pve/nodes/$(hostname)/lxc/"
