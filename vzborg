@@ -753,25 +753,25 @@ vzborg_purge() {
 
     # purge all backups
     if [[ $vm_ids = "all" ]]; then
-        purge_ids=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+        purge_ids=$(borg list ${borg_extra} --format={archive}{NL} "${vzborg_repo}" -P ${archs_prefix}- | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
     else
         purge_ids=${vm_ids}
     fi
-    say "> Host $(hostname) - Purge job started for guests $purge_ids." |& tee -a ${detail_file}
-    say "> Repository ${vzborg_repo}." |& tee -a ${detail_file}
-    say "> with retention \"${retention}\"." |& tee -a ${detail_file}
+    say "> Host $(hostname) - Purge job started for guests $purge_ids" |& tee -a ${detail_file}
+    say "> Repository ${vzborg_repo}" |& tee -a ${detail_file}
+    say "> with retention \"${retention}\"" |& tee -a ${detail_file}
     # Loop through each ID
     for VM_ID in $purge_ids; do
         say "-> Purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
         # Get guest information from backup
-        guest=$(vzborg list -i ${VM_ID} -r ${vzborg_repo} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
+        guest=$(borg list ${borg_extra} --format="{archive} {bcomment}{NL}" ${vzborg_repo} -P ${archs_prefix}-${VM_ID} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
 
         if [ ! -z "${guest}" ]; then
             guest='('$guest')'            
             # generate array with recovered backup info
             declare -A guest_="${guest}"
             vm_type=${guest_[vm_type]}
-            vm_hostname=${guest_[vm_type]}
+            vm_hostname=${guest_[vm_hostname]}
         else
             vm_type='--'
             vm_hostname='No_Backup_with_this_ID'
@@ -788,7 +788,7 @@ vzborg_purge() {
         fi
         purge_es=$SECONDS
         printf "$line_format" $vm_type $VM_ID 0 0 0 'no' $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
-        say '<- Done purging.'
+        say "<- Done purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
     done
 
 }
