@@ -555,16 +555,16 @@ vzborg_info() {
 
     if ! [ -z "${backup_name}" ]; then
         local borg_format="--format=${list_format}"
-        echo -e "\nBackup Information" >${list_file}
-        echo -e "------------------\n" >>${list_file}
+        echo -e "\nBackup Information:" >${list_file}
+        echo -e "------------------" >>${list_file}
         borg info ${borg_extra} "${vzborg_repo}::${backup_name}" | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" >>${list_file}
         # Extract config file info from comment in archive
-        echo -e "\nVM Configuration File:" >>${list_file}
-        echo -e "----------------------\n" >>${list_file}
+        echo -e "\nGuest Configuration File:" >>${list_file}
+        echo -e "------------------------" >>${list_file}
         borg list ${borg_extra} "${borg_format}" "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }' >>${list_file}
     else
-        echo -e "\nRepository Information" >${list_file}
-        echo -e "----------------------\n" >>${list_file}
+        echo -e "\nRepository Information:" >${list_file}
+        echo -e "----------------------" >>${list_file}
         borg info ${borg_extra} "${vzborg_repo}" >>${list_file}
     fi
 
@@ -657,32 +657,26 @@ vzborg_list_size() {
         echo
         exit
     fi
-    # Set a default list format
-    local list_format='{archive} {bcomment}{NL}'
-    local borg_format="--format=${list_format}"
-
-    local list_file="$(mktemp ${temp_dir}/vzborg.XXXXXX)"
+    local backups_list=''
 
     # Virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            borg list ${borg_extra} "${borg_format}" "${vzborg_repo}" -P "${archs_prefix}-${VM_ID}-" >>${list_file}
+            backups_list="${backups_list} $(borg list ${borg_extra} --format={archive}{SPACE} --sort-by=name ${vzborg_repo} -P ${archs_prefix}-${VM_ID}- )"
         done
     else
-        # using --last 9999 would be faster but would need a rewrite of the code structure a bit
-        borg list ${borg_extra} "${borg_format}" "${vzborg_repo}" -P ${archs_prefix}- >>${list_file}
+        # list all backups
+        backups_list=$(borg list ${borg_extra} --format={archive}{SPACE} --sort-by=name ${vzborg_repo} -P ${archs_prefix}- )
     fi
-    # Remove configuration file info and sort by archive name
-    list_of_files="$(cat ${list_file} | sed '/BEGIN_CONFIG>/,/<END_CONFIG/d' | sort | sed 's/\ .*$//')"
-    echo "                                               Original size      Compressed size    Deduplicated size"
-    for save_file in $list_of_files; do
-        borgoutput="$(borg info ${borg_extra} ${vzborg_repo} -P ${save_file} | grep 'This archive:' | sed 's/This archive:/'$save_file'/' | sort)"
-        echo "$borgoutput"
+
+    say 'Warning: This may be slow, specially with remote repositories'
+    echo
+    echo 'Backup names                                   Original size      Compressed size    Deduplicated size'
+    for save_file in $backups_list; do
+        local sizes=$(borg info ${borg_extra} ${vzborg_repo} -P ${save_file} | sed -n 's/This archive://p')
+        printf "%-39s %17s %s %17s %s %17s %s\n" $save_file $(borg info ${borg_extra} ${vzborg_repo}::${save_file} | sed -n 's/This archive://p')
     done
-    echo "----------------------------------------------------------------------------------------------------"
-    borgoutput="$(borg info ${borg_extra} ${vzborg_repo} | grep 'All archives:')"
-    echo "                     $borgoutput"
-    rm ${list_file}
+    echo
 }
 vzborg_purge() {
     if [[ ${show_command_help} = true ]]; then
@@ -1193,4 +1187,3 @@ backup | purge)
     rm -r ${detail_file} ${summary_file}
     ;;
 esac
-
