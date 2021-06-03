@@ -67,4 +67,6 @@ else
     say "Creating default configuration file (/etc/vzborg/default)."
     mkdir /etc/vzborg
     wget -P /etc/vzborg https://raw.githubusercontent.com/g3492/vzborg/master/default
+    say 'Generating an initial random passphrase'
+    sed -i "s/MySecretBorgRepositoryPassphrase/$(LC_ALL=C tr -dc 'A-Za-z0-9!#%()+,-.:;<=>@[]_{|}~' </dev/urandom | head -c 32 )/g" /etc/vzborg/default
 fi
