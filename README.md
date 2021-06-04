@@ -62,20 +62,20 @@ VzBorg accepts one of the following commands:
 |  version   |Show VzBorg, Borg and PVE versions.     |
             
 ### Options:
-| Option          | Value      |Use with commands          |Description                             |
-|:----------------|:-----------|:--------------------------|:---------------------------------------|
-|-b (--backup)    |backup_name |delete/getdump/info/restore|Name of an existing backup (archive)    |
-|-c (--config)    |config_name |all except help/version    |Name of a config file in /etc/vzborg dir|
-|-d (--dry-run)   |            |purge                      |Just perform a simulation               |
-|-f (--force)     |            |restore                    |Force overwrite of existing VM/CT       |
-|-h (--help)      |            |all except help/version    |Display command help                    |
-|-i (--id)        |vm_id       |backup/delete/purge/restore|PVE VM/CT ID or list of PVE VM/CT IDs   |
-|-k (--keep)      |retention   |backup/purge               |List of retention settings              |
-|-m (--mode)      |mode        |backup                     |vzdump mode (default = snapshot)        |
-|-n (--new-id)    |vm_id       |restore                    |New vm_id for restored backup           |
-|-p (--purge)     |            |backup                     |Purge guest when backing up             |
-|-r (--repository)|repository  |all except help/version    |Borg repository                         |
-|-s (--storage)   |storage     |getdump/restore            |Proxmox storage (default = local)       |
+| Option          | Value      |Use with commands           |Description                             |
+|:----------------|:-----------|:---------------------------|:---------------------------------------|
+|-b (--backup)    |backup_name |delete/getdump/info/restore |Name of an existing backup (archive)    |
+|-c (--config)    |config_name |all except help/version     |Name of a config file in /etc/vzborg dir|
+|-d (--dry-run)   |            |purge                       |Just perform a simulation               |
+|-f (--force)     |            |restore                     |Force overwrite of existing VM/CT       |
+|-h (--help)      |            |all except help/version     |Display command help                    |
+|-i (--id)        |vm_id       |all except help/info/version|PVE VM/CT ID or list of PVE VM/CT IDs   |
+|-k (--keep)      |retention   |backup/purge                |List of retention settings              |
+|-m (--mode)      |mode        |backup                      |vzdump mode (default = snapshot)        |
+|-n (--new-id)    |vm_id       |restore                     |New vm_id for restored backup           |
+|-p (--purge)     |            |backup                      |Purge guest when backing up             |
+|-r (--repository)|repository  |all except help/version     |Borg repository                         |
+|-s (--storage)   |storage     |getdump/restore             |Proxmox storage (default = local)       |
 
 ### Configuration file:
 
@@ -152,11 +152,14 @@ List all backups of guest with ID 303 existing on remote repository ssh://exampl
 
 List all backups of guests with IDs 1230, 1040 and 2077 existing in local repository /mnt/vzborg
 
-
 `vzborg getdump --backup vzborg-13998-2020_03_20-13_08_35.tar --storage backups`
 
 Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file in PVE storage backups 
 (the file will be recreated as the compressed file vzdump-lxc-13998-2020_03_20-13_08_35.tar.lzo)
+
+`vzborg getdump --id 103 --storage backups`
+
+Recreate dump file from last backup of guest 103 in PVE storage backups 
 
 `vzborg purge --id '101 102 307'`
 

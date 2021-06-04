@@ -337,17 +337,19 @@ vzborg_getdump() {
         echo "  vzborg getdump"
         echo
         echo "USAGE"
-        echo "  vzborg getdump (-b|--backup) <backup_name> \\"
+        echo "  vzborg getdump (-b|--backup) <backup_name> | (-i|--id) <vmid> \\"
         echo "                   [ (-r|--repository) <repository>] \\"
         echo "                   [ (-s|--storage) <storage>]"
         echo
         echo "  <backup_name>: <string> (name of a vzborg backup of a guest)"
+        echo "  <vmid>: <integer> (100 - N) The (unique) ID of a backed up PVE guest."
         echo "  <repository>: <path> (full repository path)"
         echo "  <storage>: <string> (Proxmox storage where the dump file must be recreated"
         echo
         echo "DESCRIPTION"
         echo "  The vzborg getdump command recreates a dump file into a suitable proxmox storage, from a backup in a "
-        echo "  repository. The recreated file, will follow the proxmox dump naming convention."
+        echo "  repository. If an ID is provided instead of a backup name, vzborg gets the last dump of that guest."
+        echo "  The recreated file, will follow the proxmox dump naming convention."
         echo
         echo "EXAMPLES"
         echo
@@ -355,6 +357,10 @@ vzborg_getdump() {
         echo "  from backup vzborg-1301-2020_03_20-13_18_45.vma in default repository "
         echo "  to proxmox storage backup"
         echo "    vzborg getdump -b vzborg-1301-2020_03_20-13_18_45.vma -s backup"
+        echo
+        echo "  Recreate the dump file of the last backup of guest 144"
+        echo "  in default repository to storage weekly"
+        echo "    vzborg getdump -i 144 -s weekly"
         echo
         echo "  Recreate dump file vzdump-lxc-141-2020_03_20-13_18_45.tar.lzo"
         echo "  from backup vzborg-141-2020_03_20-13_18_45.tar in repository /mnt/vzborgrepo"
@@ -364,6 +370,7 @@ vzborg_getdump() {
         exit
     fi
 
+    local backup_id=${vm_ids:-''}
     local borg_archive=${backup_name}
     local compression_level=''
     local dump_dir=''
@@ -373,24 +380,48 @@ vzborg_getdump() {
     local find_archive=''
     local storage_content=''
 
+    # check if required options where informed and are valid
+    if [ -z "${borg_archive}" ]; then
+        # no backup name to restore
+        if [[ -z ${backup_id} ]]; then
+            # no backup id
+            die "vzborg getdump requires a (-b|--backup) or a (-i|--id) option."
+        else
+            # getdump by id.
+            if ! (is_valid_guest_id "${backup_id}") ; then
+            die "\"${backup_id}\" is not a valid guest ID number."
+        fi
+            #Get the backup name of the last backup for the guest
+            borg_archive=$(borg list ${borg_extra} --format={archive}{NL} ${vzborg_repo} -P ${archs_prefix}-${backup_id}- | sort -r | head -1)
+            if [[ -z ${borg_archive} ]]; then
+                die "guest ${backup_id} has no backup in repository ${vzborg_repo}."
+            fi
+        fi 
+    else
+        if ! [[ -z ${backup_id} ]]; then
+            # backup id also informed
+            die "vzborg getdump requires a (-b|--backup) or a (-i|--id) option, but not both."
+        fi
+        # check if backup exists in repository
+        #find_archive=$(borg info ${borg_extra} ${vzborg_repo}::${borg_archive})
+        #if [[ -z $find_archive ]]; then
+        if [[ ! $(borg info ${borg_extra} ${vzborg_repo}::${borg_archive}) ]]; then
+            die "backup ${borg_archive} does not exist in repository ${vzborg_repo}."
+        fi
+    fi
+
     case ${borg_archive} in
-    *.tar) dump_type='lxc' ;;
-    *.vma) dump_type='qemu' ;;
+    *.tar)
+        dump_type='lxc'
+        compression_level=7 ;;
+    *.vma)
+        dump_type='qemu'
+        compression_level=3 ;;
     *) die "option -b \"${borg_archive}\" is not a valid backup name" ;;
     esac
-    # check if backup exists in repository
-    find_archive=$(borg info ${borg_extra} ${vzborg_repo}::${borg_archive})
-    if [[ -z $find_archive ]]; then
-        die "backup ${borg_archive} does not exist in repository ${vzborg_repo}."
-    fi
+
     #  Recreate normal proxmox backup file name (add qemu/lxc type to file name)
     dump_file=${borg_archive/${archs_prefix}/vzdump-${dump_type}}
-
-    # Set default compression level
-    case ${dump_type} in
-    qemu) compression_level=3 ;;
-    lxc) compression_level=7 ;;
-    esac
 
     storage_content=$(sed -n "/: ${dump_storage}/,/:/{s/^[[:space:]]*content //p }" /etc/pve/storage.cfg)
     if [[ ! "$storage_content" == *backup* ]]; then
