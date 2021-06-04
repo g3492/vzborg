@@ -872,7 +872,7 @@ vzborg_restore() {
                 if [[ ${backup_id} = 'all' ]]; then
                     # Restore all guests. Get a list of Ids of all backups.
                     restore_list_of_guests=true
-                    backup_id=$(vzborg list -r ${vzborg_repo} | grep ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | sort | uniq | tr '\n' ' ')
+                    backup_id=$(borg list ${borg_extra} --format={archive}{NL} --sort-by=name ${vzborg_repo} -P ${archs_prefix}-  | cut -d"-" -f2 | cut -d"-" -f1 | uniq | tr '\n' ' ')
                 fi
             fi
             # Check if new restore id was informed, and there is a list of guest to restore.
