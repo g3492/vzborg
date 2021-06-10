@@ -1,8 +1,8 @@
 # VzBorg utility
-## **Deduplicated, encrypted, local or remote backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ )**
+## **Simple deduplicated, encrypted, local or remote backups for the [Proxmox Virtual Environment](https://pve.proxmox.com/ )**
 
 With VzBorg you can:
-- Backup, restore, delete, list and maintain your PVE backups in a flexible and efficient way.
+- Backup, restore, purge, delete, list and organize your PVE backups in a flexible and efficient way.
 - Use retention settings to keep your desired number of last, hourly, daily, weekly, monthly and yearly backups.
 - Set up simple automated backups to remote locations using ssh keys.
 
@@ -32,12 +32,14 @@ If you are running proxmox 5.x you must enable stretch-backports repository:
 
 If you want to use a remote repository, you need BorgBackup installed on the remote computer, ideally with the same or a greater version.
 
-If your remote repository is on another proxmox server, you can eventually restore your backups on it, if you install VzBorg, and configure the repository as local. Warning: In this case it is not recommended to use that repository for local backups.
+If your remote repository is on another proxmox server, you can eventually restore your backups on it. Just install VzBorg, and configure the repository as a local one. Warning: In this situation it is not recommended to use that repository for local backups.
 
-## Installation
+## Installation and update
 As user root in your Proxmox server run:
 
 `wget -O - https://raw.githubusercontent.com/g3492/vzborg/master/install_and_update_vzborg.sh | bash`
+
+On first install, a default configuration file with a random passphrase is created.
 
 ## Usage:
 `vzborg <COMMAND> [OPTIONS]`
@@ -56,7 +58,7 @@ VzBorg accepts one of the following commands:
 |  help      |Show VzBorg help.                       |
 |  info      |Show repository or backup info          |
 |  list      |List backups in a repository.           |
-|  list-size |List backups in a repository with sizes.|
+|  list-size |List sizes of backups in a repository   |
 |  purge     |Purge a repository.                     | 
 |  restore   |Restore backups from a repository.      |
 |  version   |Show VzBorg, Borg and PVE versions.     |
@@ -84,14 +86,14 @@ VzBorg accepts one of the following commands:
 Edit before using VzBorg, to customize defaults values for repository, encryption, etc..
 
 You can have different config files in /etc/vzborg for managing different repositories or environments.
-You can instruct vzborg to read an additional configuration file with the -c option. Ex:
+You can instruct vzborg to read an additional configuration file with the -c (--config) option. Ex:
 
 `vzborg backup -c remoterepo -i 121`
 
 Backup guest with ID 121 reading additional configuration file /etc/vzborg/remoterepo.
 
 ### Repositories
-The `vzborg backup` command, automatically creates the related borg repository, if it can not find it.
+The `vzborg backup` command, automatically creates the related borg repository, if it does not exist.
 
 ### Backup names
 
@@ -116,22 +118,32 @@ or
 The best way to start with VzBorg is to edit the `/etc/vzborg/default` file with some sensible values, and run a back up of a small guest. Then you can try to restore it, backup it again, list, purge, etc.
 
 ## Examples
+
+### Help
+
+`vzborg help`
+
+Show VzBorg help.
+
 `vzborg restore -h`
 
 Show help about restore command.
+
+### Backup
 
 `vzborg backup --id 201`
 
 Backup guest 201 with default options.
 
-`vzborg backup --id all`
+`vzborg backup --id all  --config remote-repo`
 
-Backup all guests in proxmox node with default options.
+Backup all guests in proxmox node with default options using configuration file remote-repo.
 
 `vzborg backup --id '101 102 307' --mode stop --purge`
 
 Backup guests 101, 102 and 307 with mode stop to default repository, purging with default retention settings.
 
+### Restore
 `vzborg restore --backup vzborg-300-2020_03_20-13_11_46.vma --new-id 1300 --storage local_lvm`
 
 Restore VM from backup with name vzborg-300-2020_03_20-13_11_46.vma as VM with ID 1300 to storage local_lvm.
@@ -139,6 +151,12 @@ Restore VM from backup with name vzborg-300-2020_03_20-13_11_46.vma as VM with I
 `vzborg restore --id 102 --storage local_lvm --force`
 
 Restore last backup of VM 102 forcing overwrite if guest exists.
+
+`vzborg restore --id all --repository /mnt/backup02`
+
+Restore last backup of all guests in repository /mnt/backup02 to default storage.
+
+### List backups
 
 `vzborg list`
 
@@ -152,14 +170,40 @@ List all backups of guest with ID 303 existing on remote repository ssh://exampl
 
 List all backups of guests with IDs 1230, 1040 and 2077 existing in local repository /mnt/vzborg
 
+`vzborg list-size`
+
+List size of each backup in the default repository.
+
+`vzborg list-size  --id 201`
+
+List size of each backup of guest 201 in the default repository.
+
+### Information about repository or backup
+
+`vzborg info`
+
+Shows information about the default repository.
+
+`vzborg info --backup vzborg-lxc-13998-2020_03_20-13_08_35.tar`
+
+Shows information about backup vzborg-lxc-13998-2020_03_20-13_08_35.tar in default repository, including guest configuration file.
+
+`vzborg info --repository /var/lib/vzborg`
+
+Shows information about the repository /var/lib/vzborg.
+
+
+### Get dump file
+
 `vzborg getdump --backup vzborg-13998-2020_03_20-13_08_35.tar --storage backups`
 
-Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file in PVE storage backups 
-(the file will be recreated as the compressed file vzdump-lxc-13998-2020_03_20-13_08_35.tar.lzo)
+Recreate from backup name vzborg-13998-2020_03_20-13_08_35.tar an lxc dump file in PVE storage backups (the file will be recreated as the compressed file vzdump-lxc-13998-2020_03_20-13_08_35.tar.lzo)
 
 `vzborg getdump --id 103 --storage backups`
 
-Recreate dump file from last backup of guest 103 in PVE storage backups 
+Recreate dump file from last backup in default repository of guest 103, in PVE storage backups
+
+### Purge repository
 
 `vzborg purge --id '101 102 307'`
 
@@ -172,6 +216,16 @@ Purge backups keeping only the last 2 of each guest.
 `vzborg purge --id '101 102 307' --keep-weekly=4 --keep-monthly=6 --keep-yearly=2`
 
 Purge backups of guests with IDs 101, 102 and 307 on default repository, keeping 4 weekly, 6 monthly and 2 yearly backups.
+
+### Delete backups
+
+`vzborg delete --id '101 103'`
+
+Deletes all existing backups of guests 101 and 103 from default repository
+
+`vzborg delete --backup vzborg-141-2020_03_20-13_18_45.tar -r /var/lib/vzborgrepo`
+
+Deletes the vzborg-141-2020_03_20-13_18_45.vma backup from the /var/lib/vzborgrepo repository
 
 ## License
 Licensed under GNU Affero General Public License, version 3.
