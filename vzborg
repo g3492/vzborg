@@ -978,7 +978,7 @@ vzborg_restore() {
                 continue
             fi
             vm_type='CT'
-            guest_config="$(borg list ${borg_extra} --format='{bcomment}' "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
+            guest_config="$(borg list ${borg_extra} --format='{bcomment}' "${vzborg_repo}" -P "${borg_archive}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
             if echo "${guest_config}" | grep -q '^mp.:'; then
                 # container has mount points, better to restore it using intermediate dump file
                 guest_has_mount_points=true
