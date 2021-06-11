@@ -971,7 +971,7 @@ vzborg_restore() {
         if [[ -z  ${force_overwrite} ]]; then
             # force overwrite not specified, check if restore id exists
             if [ -e "${ct_conf_dir}${restore_id}.conf" ]; then
-                #   Exists a container with that ID
+                # A container with that ID already exists
                 sorry "a container with ID \"${restore_id}\" exists and option (-f|--force) was not specified."
                 continue
             else
@@ -991,13 +991,14 @@ vzborg_restore() {
             fi
         fi
         case ${borg_archive} in
-        *.tar)
+        *.tar|*.rfs)
             if [[ ! "$storage_content" == *rootdir* ]]; then
                 sorry "Storage \"${restore_storage}\" is not a containers storage"
                 continue
             fi
             vm_type='CT'
-            guest_config="$(borg list ${borg_extra} --format='{bcomment}' "${vzborg_repo}" -P "${backup_name}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
+            guest_config="$(borg list ${borg_extra} --format='{bcomment}' "${vzborg_repo}" -P "${borg_archive}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
+            guest_has_mount_points=false
             if echo "${guest_config}" | grep -q '^mp.:'; then
                 # container has mount points, better to restore it using intermediate dump file
                 guest_has_mount_points=true
@@ -1024,16 +1025,25 @@ vzborg_restore() {
         if [[ ${vm_type} == 'VM' ]]; then
             borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}
         else
-            if [[ ${guest_has_mount_points} = true ]]; then
-                #echo 'Guest has mount points, restoring to temporary file'
-                local temp_dump_dir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
-                local dump_file=${borg_archive/${archs_prefix}/vzdump-lxc}
-                borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | lzop -5 --output=${temp_dump_dir}/${dump_file}.lzo -
-                pct restore ${restore_id} ${temp_dump_dir}/${dump_file}.lzo --storage ${restore_storage} ${force_overwrite}
-                rm -r ${temp_dump_dir}
-            else
-                borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
-            fi
+            case ${borg_archive} in
+            *.tar)
+                if [[ ${guest_has_mount_points} = true ]]; then
+                    #echo 'Guest has mount points, restoring to temporary file'
+                    local temp_dump_dir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
+                    local dump_file=${borg_archive/${archs_prefix}/vzdump-lxc}
+                    borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | lzop -5 --output=${temp_dump_dir}/${dump_file}.lzo -
+                    pct restore ${restore_id} ${temp_dump_dir}/${dump_file}.lzo --storage ${restore_storage} ${force_overwrite}
+                    rm -r ${temp_dump_dir}
+                else
+                    #echo 'piping backup directly to pct restore'
+                    borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
+                fi
+                ;;
+            *.rfs)
+                say 'Root filesystem restore'
+                borg export-tar ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
+                ;;
+            esac
         fi
         say "< Restore finished"
         echo
