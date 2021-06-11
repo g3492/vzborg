@@ -163,11 +163,8 @@ vzborg_backup() {
         local vmids="$(qm list | awk '{print $1}' | grep -v ID)"
         # All ids sorted and cleaned in a string
         vm_ids=$(echo -e "${vmids}\n${ctids}" | sort -n | tr '\n' ' ' | xargs)
-
     fi
 
-    #say "Checking repository" |& tee -a ${detail_file}
-    #borg info ${borg_extra} ${vzborg_repo} || borg init ${borg_extra}  	--make-parent-dirs --encryption=${encryption_mode} ${vzborg_repo}
     say "Retrieving ${vzborg_repo} repository info" |& tee -a ${detail_file}
     divider |& tee -a ${detail_file}
     # Try to get repository info. On fail init repository.
@@ -188,20 +185,29 @@ vzborg_backup() {
     for VM_ID in $vm_ids; do
         # Get info about guest VM
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
-            #   Is a container
+            # Guest is a container
             vm_type='CT'
             vm_ext='tar'
             vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
             vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf)"
+            # Determine if a filesystem backup is feasible
+            if ! grep -q '^mp.:' ${ct_conf_dir}${VM_ID}.conf; then
+                # container has no extra mount points
+                if ! grep -q '^rootfs:.*acl=1' ${ct_conf_dir}${VM_ID}.conf; then
+                    # container rootfs has no acl
+                    # a filesystem backup is feasible
+                    vm_ext=rfs
+                fi
+            fi
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
-                # is a virtual machine
+                # Guest is a virtual machine
                 vm_type='VM'
                 vm_ext='vma'
                 vm_hostname="$(grep -m 1 ^name ${vm_conf_dir}${VM_ID}.conf | awk '{print $2}')"
                 vm_config="$(cat ${vm_conf_dir}${VM_ID}.conf)"
             else
-                # unknown vm
+                # unknown guest
                 vm_type='--'
                 vm_hostname='No_Virtual_Machine_with_this_ID'
                 backup_status='failed'
@@ -216,14 +222,27 @@ vzborg_backup() {
 
         say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
-        if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --files-cache=disabled --stdin-name=vzborgdump --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
-            ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
-            # rename temporary archive
-            # this adds 10 minutes to each backup
-            #borg rename ${borg_extra} ${vzborg_repo}::${backup_name}.tmp ${backup_name}
-            backup_status='ok'
+
+        if [[ ${vm_ext} = "rfs" ]]; then
+            # root filesystem backup of container
+            say '-> Performing a root filesystem backup of the container'
+            # In the following if sentence, the evaluated command should be changed,
+            # or the logic reformulated.
+            # The result should be to backup the container's filesystem instead of the vzdump tar file.
+            if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --files-cache=disabled --stdin-name=vzborgdump --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
+                ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
+                backup_status='ok'
+            else
+                backup_status='failed'
+            fi
         else
-            backup_status='failed'
+            # normal backup 
+            if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --files-cache=disabled --stdin-name=vzborgdump --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
+                ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
+                backup_status='ok'
+            else
+                backup_status='failed'
+            fi
         fi
         backup_es=$SECONDS
         if [[ ${purge_on_backup} = true ]]; then
