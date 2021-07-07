@@ -70,6 +70,7 @@ VzBorg accepts one of the following commands:
 |-c (--config)    |config_name |all except help/version     |Name of a config file in /etc/vzborg dir|
 |-d (--dry-run)   |            |purge                       |Just perform a simulation               |
 |-f (--force)     |            |restore                     |Force overwrite of existing VM/CT       |
+|--fs-backup      |yes/no      |backup                      |File system based backup of containers  |
 |-h (--help)      |            |all except help/version     |Display command help                    |
 |-i (--id)        |vm_id       |all except help/info/version|PVE VM/CT ID or list of PVE VM/CT IDs   |
 |-k (--keep)      |retention   |backup/purge                |List of retention settings              |

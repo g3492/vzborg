@@ -42,11 +42,15 @@ ENCRYPTION_MODE=repokey-blake2
 
 # ENCRYPTION PASSPHRASE
 #
-# Put here your borg repository passphrase if you dont want being 
+# Put here your borg repository passphrase if you don't want being 
 # asked for it, for example if you are automating backups.
 # This passphrase will also be used if the borg repository is created
 # automatically on first backup
 VZBORG_PASSPHRASE='MySecretBorgRepositoryPassphrase'
+
+# Filesystem backup of containers
+# (yes/no)
+FS_BACKUP='no'
 
 # NOTIFICATION OF VZBORG JOBS
 #

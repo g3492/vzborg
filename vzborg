@@ -38,17 +38,17 @@ version_greater_equal() {
     printf '%s\n%s\n' "$2" "$1" | sort -V -C
 }
 is_valid_guest_id() {
-	if [[ -z ${1:-''} ]]; then
+    if [[ -z ${1:-''} ]]; then
         # empty value
         exit 1
-	fi
+    fi
     local re='^[1-9]([0-9]+)?$'
-    if ! [[ $1 =~ $re ]] ; then
+    if ! [[ $1 =~ $re ]]; then
         # not an integer that does not begin with 0
         exit 1
     fi
     if [ "$1" -lt 100 ] || [ "$1" -gt 999999999 ]; then
-       # invalid range
+        # invalid range
         exit 1
     fi
     exit 0
@@ -136,7 +136,7 @@ vzborg_backup() {
     fi
 
     if [ -z "${vm_ids:-}" ]; then
-        die 'No guests to backup. Check your -i o --id option.'
+        die 'No guests to backup. Check your -i or --id option.'
     fi
 
     local backup_comment=''
@@ -170,7 +170,7 @@ vzborg_backup() {
     # Try to get repository info. On fail init repository.
     if ! borg info ${borg_extra} ${vzborg_repo}; then
         say "Creating ${vzborg_repo} repository" |& tee -a ${detail_file}
-        if ! borg init ${borg_extra}  	--make-parent-dirs --encryption=${encryption_mode} ${vzborg_repo}; then
+        if ! borg init ${borg_extra} --make-parent-dirs --encryption=${encryption_mode} ${vzborg_repo}; then
             die "Failed creating ${vzborg_repo} repository. Check your repository definition." |& tee -a ${detail_file}
         fi
     fi
@@ -190,12 +190,12 @@ vzborg_backup() {
             vm_ext='tar'
             vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
             vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf)"
-            # Determine if a filesystem backup is feasible
+            # Determine if a filesystem backup is appropriate
             if ! grep -q '^mp.:' ${ct_conf_dir}${VM_ID}.conf; then
                 # container has no extra mount points
                 if ! grep -q '^rootfs:.*acl=1' ${ct_conf_dir}${VM_ID}.conf; then
                     # container rootfs has no acl
-                    # a filesystem backup is feasible
+                    # a filesystem backup is appropriate
                     vm_ext=rfs
                 fi
             fi
@@ -222,34 +222,42 @@ vzborg_backup() {
 
         say "-> Beginning backup of ${vm_type} ${VM_ID} (${vm_hostname})" |& tee -a ${detail_file}
         SECONDS=0
-
+        backup_status='failed'
         if [[ ${vm_ext} = "rfs" ]]; then
             # root filesystem backup of container
-            say '-> Performing a root filesystem backup of the container'
-            # In the following if sentence, the evaluated command should be changed,
-            # or the logic reformulated.
-            # The result should be to backup the container's filesystem instead of the vzdump tar file.
-            if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --files-cache=disabled --stdin-name=vzborgdump --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
-                ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
-                backup_status='ok'
-            else
-                backup_status='failed'
+            # Create directory for container filesystem
+            local rfsdir="${temp_dir}/${VM_ID}"
+            rm -rf ${rfsdir}
+            mkdir -p ${rfsdir}
+            # Execute vzdump and untar it's output to the created directory 
+            if vzdump ${VM_ID} --dumpdir ${temp_dir} --tmpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | tar -xp --skip-old-files --anchored --exclude ./dev/* -C ${rfsdir}; then
+                # change to directory where untared filesystem is 
+                cd ${rfsdir}
+                # generate a borg backup archive from it
+                if borg create ${borg_extra} --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
+                    ${vzborg_repo}::${backup_name} . |& tee -a ${detail_file}; then
+                    backup_status='ok'
+                fi
             fi
+            cd
+            rm -rf ${rfsdir}
         else
-            # normal backup 
+            # standard backup of vzdump output
             if vzdump ${VM_ID} --dumpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | borg create ${borg_extra} --files-cache=disabled --stdin-name=vzborgdump --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
                 ${vzborg_repo}::${backup_name} - |& tee -a ${detail_file}; then
                 backup_status='ok'
-            else
-                backup_status='failed'
             fi
         fi
         backup_es=$SECONDS
-        if [[ ${purge_on_backup} = true ]]; then
+        if [[ ${purge_on_backup} = true ]] && [[ ${backup_status} = 'ok' ]] ; then
             SECONDS=0
             say "--> Purging" |& tee -a ${detail_file}
             if borg prune ${borg_extra} -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
-                purge_status='done'
+                if [[ ${dry_run} ]]; then
+                    purge_status='sim.'
+                else
+                    purge_status='done'
+                fi
             else
                 purge_status='failed'
             fi
@@ -258,9 +266,7 @@ vzborg_backup() {
         else
             purge_status='no'
         fi
-
         say "<- Finished backup of ${vm_type} ${VM_ID} (${vm_hostname})." |& tee -a ${detail_file}
-
         printf "$line_format" $vm_type $VM_ID $(($backup_es / 3600)) $(($backup_es % 3600 / 60)) $(($backup_es % 60)) $backup_status $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
     done
 }
@@ -329,7 +335,7 @@ vzborg_delete() {
         # delete by guest id
         if [[ $vm_ids = "all" ]]; then
             # delete all backups
-            archives=$(borg list ${borg_extra} ${borg_format} "${vzborg_repo}" -P ${archs_prefix}- | sort )
+            archives=$(borg list ${borg_extra} ${borg_format} "${vzborg_repo}" -P ${archs_prefix}- | sort)
             say "> Deleting all backups from repository ${vzborg_repo}"
             for archive in $archives; do
                 say "-> Deleting ${archive}"
@@ -407,41 +413,43 @@ vzborg_getdump() {
             die "vzborg getdump requires a (-b|--backup) or a (-i|--id) option."
         else
             # getdump by id.
-            if ! (is_valid_guest_id "${backup_id}") ; then
-            die "\"${backup_id}\" is not a valid guest ID number."
-        fi
+            if ! (is_valid_guest_id "${backup_id}"); then
+                die "\"${backup_id}\" is not a valid guest ID number."
+            fi
             #Get the backup name of the last backup for the guest
             borg_archive=$(borg list ${borg_extra} --format={archive}{NL} ${vzborg_repo} -P ${archs_prefix}-${backup_id}- | sort -r | head -1)
             if [[ -z ${borg_archive} ]]; then
                 die "guest ${backup_id} has no backup in repository ${vzborg_repo}."
             fi
-        fi 
+        fi
     else
         if ! [[ -z ${backup_id} ]]; then
             # backup id also informed
             die "vzborg getdump requires a (-b|--backup) or a (-i|--id) option, but not both."
         fi
         # check if backup exists in repository
-        #find_archive=$(borg info ${borg_extra} ${vzborg_repo}::${borg_archive})
-        #if [[ -z $find_archive ]]; then
         if [[ ! $(borg info ${borg_extra} ${vzborg_repo}::${borg_archive}) ]]; then
             die "backup ${borg_archive} does not exist in repository ${vzborg_repo}."
         fi
     fi
 
     case ${borg_archive} in
-    *.tar)
+    *.tar | *.rfs)
         dump_type='lxc'
-        compression_level=7 ;;
+        compression_level=7
+        ;;
     *.vma)
         dump_type='qemu'
-        compression_level=3 ;;
+        compression_level=3
+        ;;
     *) die "option -b \"${borg_archive}\" is not a valid backup name" ;;
     esac
 
     #  Recreate normal proxmox backup file name (add qemu/lxc type to file name)
     dump_file=${borg_archive/${archs_prefix}/vzdump-${dump_type}}
-
+    if [[ ${borg_archive} == *.rfs ]]; then
+         dump_file=${dump_file/rfs/tar}
+    fi
     storage_content=$(sed -n "/: ${dump_storage}/,/:/{s/^[[:space:]]*content //p }" /etc/pve/storage.cfg)
     if [[ ! "$storage_content" == *backup* ]]; then
         die "Storage \"${dump_storage}\" is not a backup storage"
@@ -449,14 +457,26 @@ vzborg_getdump() {
 
     # Get dumps directory from storage configuration file
     dump_dir=$(grep -A 99999 ${dump_storage} /etc/pve/storage.cfg | grep -m1 path | sed -n -e 's/^.*path //p')/dump
- 
+
     # Check if file exist
-    if [[ -f ${dump_dir}/${dump_file}.lzo ]]; then
-        die "dump file ${dump_dir}/${dump_file} already exists."
+    if [[ -f ${dump_dir}/${dump_file}.zst ]]; then
+        die "dump file ${dump_dir}/${dump_file}.zst already exists."
     fi
 
-    say "Recreating dump file ${dump_file}.lzo into ${dump_storage} storage"
-    borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | lzop -${compression_level} --output=${dump_dir}/${dump_file}.lzo -
+    say "Recreating dump file ${dump_file}.zst into ${dump_storage} storage"
+    if [[ ${borg_archive} == *.rfs ]]; then
+        # no luck with borg export-tar (could not generate a tar file with pct.conf as first file)
+        # Will use borg extract first, and then tar.
+        # Make a directory for the root filesystem
+        local rfsdir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
+        cd ${rfsdir}
+        borg extract ${borg_extra} ${vzborg_repo}::${borg_archive}
+        # first file in tar must be configuration file
+        tar -capf ${dump_dir}/${dump_file}.zst ./etc/vzdump/pct.conf .
+        rm -r ${rfsdir}
+    else
+        borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | lzop -${compression_level} --output=${dump_dir}/${dump_file}.lzo -
+    fi
     say "Recreation finished"
 
 }
@@ -673,7 +693,7 @@ vzborg_list() {
     cat ${list_file} | sed "/BEGIN_CONFIG>/,/<END_CONFIG/d" | sort
     rm ${list_file}
 }
-vzborg_list_size() {  
+vzborg_list_size() {
     if [[ ${show_command_help} = true ]]; then
         echo
         echo "NAME"
@@ -712,11 +732,11 @@ vzborg_list_size() {
     # Virtual machines IDs
     if ! [ -z "${vm_ids}" ]; then
         for VM_ID in $vm_ids; do
-            backups_list="${backups_list} $(borg list ${borg_extra} --format={archive}{SPACE} --sort-by=name ${vzborg_repo} -P ${archs_prefix}-${VM_ID}- )"
+            backups_list="${backups_list} $(borg list ${borg_extra} --format={archive}{SPACE} --sort-by=name ${vzborg_repo} -P ${archs_prefix}-${VM_ID}-)"
         done
     else
         # list all backups
-        backups_list=$(borg list ${borg_extra} --format={archive}{SPACE} --sort-by=name ${vzborg_repo} -P ${archs_prefix}- )
+        backups_list=$(borg list ${borg_extra} --format={archive}{SPACE} --sort-by=name ${vzborg_repo} -P ${archs_prefix}-)
     fi
 
     say 'Warning: This may be slow, specially with remote repositories'
@@ -806,12 +826,12 @@ vzborg_purge() {
     say "> with retention \"${retention}\"" |& tee -a ${detail_file}
     # Loop through each ID
     for VM_ID in $purge_ids; do
-        say "-> Purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
+        say "-> Purging backups of guest ${VM_ID}" |& tee -a ${detail_file}
         # Get guest information from backup
-        guest=$(borg list ${borg_extra} --format="{archive} {bcomment}{NL}" ${vzborg_repo} -P ${archs_prefix}-${VM_ID} | sort -r | head -1 | cut -d"(" -f2  | cut -d")" -f1)
+        guest=$(borg list ${borg_extra} --format="{archive} {bcomment}{NL}" ${vzborg_repo} -P ${archs_prefix}-${VM_ID} | sort -r | head -1 | cut -d"(" -f2 | cut -d")" -f1)
 
         if [ ! -z "${guest}" ]; then
-            guest='('$guest')'            
+            guest='('$guest')'
             # generate array with recovered backup info
             declare -A guest_="${guest}"
             vm_type=${guest_[vm_type]}
@@ -826,13 +846,17 @@ vzborg_purge() {
 
         SECONDS=0
         if borg prune ${borg_extra} -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
-            purge_status='done'
+            if [[ ${dry_run} ]]; then
+                purge_status='sim.'
+            else
+                purge_status='done'
+            fi
         else
             purge_status='failed'
         fi
         purge_es=$SECONDS
         printf "$line_format" $vm_type $VM_ID 0 0 0 'no' $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
-        say "<- Done purging backups of guest ${VM_ID}" |& tee -a ${detail_file};
+        say "<- Done purging backups of guest ${VM_ID}" |& tee -a ${detail_file}
     done
 
 }
@@ -913,8 +937,8 @@ vzborg_restore() {
         else
             # Backup id/ids informed.
             # Check if a list of ids was informed.
-            ids_=( ${backup_id} )
-            if [[  ${#ids_[@]} -gt 1  ]]; then
+            ids_=(${backup_id})
+            if [[ ${#ids_[@]} -gt 1 ]]; then
                 # Have a list of ids to restore.
                 restore_list_of_guests=true
                 # Check if new restore id was informed.
@@ -922,14 +946,14 @@ vzborg_restore() {
                 if [[ ${backup_id} = 'all' ]]; then
                     # Restore all guests. Get a list of Ids of all backups.
                     restore_list_of_guests=true
-                    backup_id=$(borg list ${borg_extra} --format={archive}{NL} --sort-by=name ${vzborg_repo} -P ${archs_prefix}-  | cut -d"-" -f2 | cut -d"-" -f1 | uniq | tr '\n' ' ')
+                    backup_id=$(borg list ${borg_extra} --format={archive}{NL} --sort-by=name ${vzborg_repo} -P ${archs_prefix}- | cut -d"-" -f2 | cut -d"-" -f1 | uniq | tr '\n' ' ')
                 fi
             fi
             # Check if new restore id was informed, and there is a list of guest to restore.
-            if ! [[ -z ${restore_id} ]] && [[ ${restore_list_of_guests} = true  ]]; then
+            if ! [[ -z ${restore_id} ]] && [[ ${restore_list_of_guests} = true ]]; then
                 die "you can not use (-n|--new-id) option with a list of IDs or \"all\"."
             fi
-        fi 
+        fi
     else
         if ! [[ -z ${backup_id} ]]; then
             # no backup id
@@ -942,7 +966,7 @@ vzborg_restore() {
         fi
         # get backup guest ID from backup name
         backup_id=$(echo "${borg_archive}" | cut -d"-" -f2 | cut -d"-" -f1)
-        if ! (is_valid_guest_id "${backup_id}") ; then
+        if ! (is_valid_guest_id "${backup_id}"); then
             # invalid guest ID for backup
             die "could not get a valid guest ID number from backup name \"${borg_archive}\"."
         fi
@@ -953,7 +977,7 @@ vzborg_restore() {
     if [[ -z ${storage_content} ]]; then
         # invalid guest ID for backup
         die "the restore storage \"${restore_storage}\" is not valid."
-    fi 
+    fi
     if [[ -z ${restore_id} ]] && [[ ${restore_list_of_guests} = false ]]; then
         # no restore id.(-n|--new-id) informed. Restore to original id.
         restore_id="${backup_id}"
@@ -968,7 +992,7 @@ vzborg_restore() {
             # Restore to original id.
             restore_id="${VM_ID}"
         fi
-        if [[ -z  ${force_overwrite} ]]; then
+        if [[ -z ${force_overwrite} ]]; then
             # force overwrite not specified, check if restore id exists
             if [ -e "${ct_conf_dir}${restore_id}.conf" ]; then
                 # A container with that ID already exists
@@ -991,24 +1015,28 @@ vzborg_restore() {
             fi
         fi
         case ${borg_archive} in
-        *.tar|*.rfs)
+        *.tar | *.rfs)
             if [[ ! "$storage_content" == *rootdir* ]]; then
                 sorry "Storage \"${restore_storage}\" is not a containers storage"
                 continue
             fi
             vm_type='CT'
+            ct_id_number=$(echo ${borg_archive} | cut -d'-' -f 2)
+            ct_temp_dir="/tmp/test/${ct_id_number}"
             guest_config="$(borg list ${borg_extra} --format='{bcomment}' "${vzborg_repo}" -P "${borg_archive}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
             guest_has_mount_points=false
+            # check if it is an unprivileged container
+            if echo "${guest_config}" | grep -q '^unprivileged: 1'; then
+                unprivileged=1
+            else
+                unprivileged=0
+            fi
             if echo "${guest_config}" | grep -q '^mp.:'; then
                 # container has mount points, better to restore it using intermediate dump file
                 guest_has_mount_points=true
             else
                 # find root file system size
                 rootfs_size=$(echo "${guest_config}" | sed -n 's/^rootfs:.*size=\([0-9]*\).*/\1/p')
-                # check if it is an unprivileged container
-                if echo "${guest_config}" | grep -q '^unprivileged: 1'; then
-                    unprivileged=1
-                fi
             fi
             ;;
         *.vma)
@@ -1040,8 +1068,7 @@ vzborg_restore() {
                 fi
                 ;;
             *.rfs)
-                say 'Root filesystem restore'
-                borg export-tar ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
+                borg export-tar ${borg_extra} ${vzborg_repo}::${borg_archive} - | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
                 ;;
             esac
         fi
@@ -1105,7 +1132,7 @@ vm_conf_dir="/etc/pve/nodes/$(hostname)/qemu-server/"
 
 # First parameter must be vzborg command
 if [ -z "${1:-}" ]; then
-    # No vzborg command, then show help
+    # No vzborg command, show help
     vzborg_command='help'
 else
     vzborg_command=${1}
@@ -1152,9 +1179,9 @@ while [ $# -gt 0 ]; do
         ;;
     -n | --new-id)
         vm_new_id="$2"
-        if ! (is_valid_guest_id "${vm_new_id}") ; then
-        # invalid guest ID for backup
-        die "the new id for restoring \"${vm_new_id}\" is not a valid guest ID number."
+        if ! (is_valid_guest_id "${vm_new_id}"); then
+            # invalid guest ID for backup
+            die "the new id for restoring \"${vm_new_id}\" is not a valid guest ID number."
         fi
         shift 2
         ;;
@@ -1192,6 +1219,10 @@ default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 -
 default_chunker=${DEFAULT_CHUNKER:-'10,23,16,4095'}
 encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
 temp_dir=${VZBORG_TEMP_DIR:-'/tmp'}
+# Check if temp directory exists
+if [ ! -d "${temp_dir}" ]; then
+    die "Temporary directory ${temp_dir} does not exist." 
+fi
 if [[ -z ${vzborg_repo} ]]; then
     vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
 fi
