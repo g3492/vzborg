@@ -138,6 +138,17 @@ vzborg_backup() {
     if [ -z "${vm_ids:-}" ]; then
         die 'No guests to backup. Check your -i or --id option.'
     fi
+    # check file system backup option for containers
+    if [ -z "${fs_backup}" ]; then 
+        fs_backup=${FS_BACKUP:-'no'}
+    fi
+    case "$fs_backup" in
+    yes | no)
+        ;;
+    *)
+        die "--fs-backup parameter should be yes/no"
+        ;;
+    esac
 
     local backup_comment=''
     local backup_compression="--compression=${default_compression}"
@@ -190,13 +201,15 @@ vzborg_backup() {
             vm_ext='tar'
             vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
             vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf)"
-            # Determine if a filesystem backup is appropriate
-            if ! grep -q '^mp.:' ${ct_conf_dir}${VM_ID}.conf; then
-                # container has no extra mount points
-                if ! grep -q '^rootfs:.*acl=1' ${ct_conf_dir}${VM_ID}.conf; then
-                    # container rootfs has no acl
-                    # a filesystem backup is appropriate
-                    vm_ext=rfs
+            if [[ ${fs_backup} = "yes" ]]; then
+                # Determine if a filesystem backup is appropriate
+                if ! grep -q '^mp.:' ${ct_conf_dir}${VM_ID}.conf; then
+                    # container has no extra mount points
+                    if ! grep -q '^rootfs:.*acl=1' ${ct_conf_dir}${VM_ID}.conf; then
+                        # container rootfs has no acl
+                        # a filesystem backup is appropriate
+                        vm_ext=rfs
+                    fi
                 fi
             fi
         else
@@ -1110,6 +1123,7 @@ vzborg_version() {
 readonly archs_prefix=vzborg
 backup_name=''
 dry_run=''
+fs_backup='no'
 force_overwrite=''
 keep_setting=''
 output_file=''
@@ -1156,6 +1170,10 @@ while [ $# -gt 0 ]; do
     -f | --force)
         force_overwrite="--force yes"
         shift 1
+        ;;
+    --fs-backup)
+        fs_backup="$2"
+        shift 2
         ;;
     -h | --help)
         show_command_help=true
