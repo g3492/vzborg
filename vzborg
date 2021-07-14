@@ -63,6 +63,7 @@ vzborg_backup() {
         echo "USAGE"
         echo "  vzborg backup (-i|--id) (<vmid>|<vmid_list>|all) \\"
         echo "                   [ (-m|--mode) (snapshot|stop|suspend)] \\"
+        echo "                   [ --fs-backup (yes|no) ] \\"
         echo "                   [ (-p|--purge)  \\"
         echo "                     [ ( -k|--keep) <n>] \\"
         echo "                     [ --keep-last=<n> ] \\"
@@ -100,6 +101,13 @@ vzborg_backup() {
         echo "    during the backup operation."
         echo "    If you need to stop or suspend the guest during the backup, for consistence or other reasons, "
         echo "    you can do it with the -m or --mode option in the command line."
+        echo
+        echo "  File system based backup of containers:"
+        echo "    When using --fs-backup option, you instruct vzborg whether or not to perform"
+        echo "    a file system based backup of the containers in the job."
+        echo "    The default is no, or whatever you defined in your configuration file."
+        echo "    In general, specifying yes, will allow for better deduplication for containers"
+        echo "    at the expense of longer backup times."
         echo
         echo "  Purging:"
         echo "    When using the -p or --purge option, a purge operation for each successfully backed up "
@@ -198,20 +206,14 @@ vzborg_backup() {
         if [ -e "${ct_conf_dir}${VM_ID}.conf" ]; then
             # Guest is a container
             vm_type='CT'
-            vm_ext='tar'
+            if [[ ${fs_backup} = 'yes' ]]; then
+                # Perform a file system backup
+                vm_ext='rfs'
+            else
+                vm_ext='tar'
+            fi           
             vm_hostname="$(grep -m 1 ^hostname ${ct_conf_dir}${VM_ID}.conf | awk '{print $2}')"
             vm_config="$(cat ${ct_conf_dir}${VM_ID}.conf)"
-            if [[ ${fs_backup} = "yes" ]]; then
-                # Determine if a filesystem backup is appropriate
-                if ! grep -q '^mp.:' ${ct_conf_dir}${VM_ID}.conf; then
-                    # container has no extra mount points
-                    if ! grep -q '^rootfs:.*acl=1' ${ct_conf_dir}${VM_ID}.conf; then
-                        # container rootfs has no acl
-                        # a filesystem backup is appropriate
-                        vm_ext=rfs
-                    fi
-                fi
-            fi
         else
             if [ -e "${vm_conf_dir}${VM_ID}.conf" ]; then
                 # Guest is a virtual machine
@@ -238,16 +240,15 @@ vzborg_backup() {
         backup_status='failed'
         if [[ ${vm_ext} = "rfs" ]]; then
             # root filesystem backup of container
-            # Create directory for container filesystem
-            local rfsdir="${temp_dir}/${VM_ID}"
-            rm -rf ${rfsdir}
-            mkdir -p ${rfsdir}
+            # create directory for container filesystem
+            local rfsdir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
+            cd ${rfsdir}
             # Execute vzdump and untar it's output to the created directory 
-            if vzdump ${VM_ID} --dumpdir ${temp_dir} --tmpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | tar -xp --skip-old-files --anchored --exclude ./dev/* -C ${rfsdir}; then
+            if vzdump ${VM_ID} --dumpdir ${temp_dir} --tmpdir ${temp_dir} --quiet ${vzdump_quiet} --compress 0 --mode ${vzdump_mode} --stdout | tar -xp ${common_tar_flags} --skip-old-files --anchored --exclude ./dev/* -C ${rfsdir}; then
                 # change to directory where untared filesystem is 
+                # and generate a borg backup archive from it
                 cd ${rfsdir}
-                # generate a borg backup archive from it
-                if borg create ${borg_extra} --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
+                if borg create ${borg_extra} --numeric-owner --chunker-params ${default_chunker} -s "${backup_compression}" "${backup_comment}" \
                     ${vzborg_repo}::${backup_name} . |& tee -a ${detail_file}; then
                     backup_status='ok'
                 fi
@@ -485,7 +486,7 @@ vzborg_getdump() {
         cd ${rfsdir}
         borg extract ${borg_extra} ${vzborg_repo}::${borg_archive}
         # first file in tar must be configuration file
-        tar -capf ${dump_dir}/${dump_file}.zst ./etc/vzdump/pct.conf .
+        tar -capf ${dump_dir}/${dump_file}.zst  ${common_tar_flags} ./etc/vzdump/pct.conf .
         rm -r ${rfsdir}
     else
         borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | lzop -${compression_level} --output=${dump_dir}/${dump_file}.lzo -
@@ -929,14 +930,18 @@ vzborg_restore() {
     local backup_id=${vm_ids:-''}
     local borg_archive=${backup_name}
     local borg_format='--format={archive}{NL}'
-    local find_archive=
+    local find_archive=''
     local guest_config=''
-    local guest_has_mount_points=false
+    local guest_has_mount_points=''
+    local guest_has_acl=''
     local ids_=''
     local restore_by_backup_name=false
     local restore_id=${vm_new_id:-''}
     local restore_list_of_guests=false
     local restore_storage=${pve_storage:-local}
+    local temp_dump_dir=''
+    local dump_file=''
+    local rfsdir=''
     local rootfs_size=32
     local unprivileged=0
     local vm_type=''
@@ -1034,18 +1039,24 @@ vzborg_restore() {
                 continue
             fi
             vm_type='CT'
-            ct_id_number=$(echo ${borg_archive} | cut -d'-' -f 2)
-            ct_temp_dir="/tmp/test/${ct_id_number}"
             guest_config="$(borg list ${borg_extra} --format='{bcomment}' "${vzborg_repo}" -P "${borg_archive}" | sed -n '/BEGIN_CONFIG>/,/<END_CONFIG/{ /_CONFIG/d; p }')"
             guest_has_mount_points=false
+            guest_has_acl=false
             # check if it is an unprivileged container
             if echo "${guest_config}" | grep -q '^unprivileged: 1'; then
                 unprivileged=1
             else
                 unprivileged=0
             fi
+            if echo "${guest_config}" | grep -q 'acl=1'; then
+                # container has acl, can not use easiest to restore it using intermediate dump file
+                guest_has_acl=true
+            else
+                # find root file system size
+                rootfs_size=$(echo "${guest_config}" | sed -n 's/^rootfs:.*size=\([0-9]*\).*/\1/p')
+            fi
             if echo "${guest_config}" | grep -q '^mp.:'; then
-                # container has mount points, better to restore it using intermediate dump file
+                # container has mount points, easiest to restore it using intermediate dump file
                 guest_has_mount_points=true
             else
                 # find root file system size
@@ -1068,20 +1079,51 @@ vzborg_restore() {
         else
             case ${borg_archive} in
             *.tar)
+                # backup contains a tar file
                 if [[ ${guest_has_mount_points} = true ]]; then
-                    #echo 'Guest has mount points, restoring to temporary file'
-                    local temp_dump_dir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
-                    local dump_file=${borg_archive/${archs_prefix}/vzdump-lxc}
+                    # Guest has mount points, restoring from a temporary pve backup file is simpler
+                    temp_dump_dir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
+                    dump_file=${borg_archive/${archs_prefix}/vzdump-lxc}
                     borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | lzop -5 --output=${temp_dump_dir}/${dump_file}.lzo -
                     pct restore ${restore_id} ${temp_dump_dir}/${dump_file}.lzo --storage ${restore_storage} ${force_overwrite}
                     rm -r ${temp_dump_dir}
                 else
-                    #echo 'piping backup directly to pct restore'
+                    # piping backup directly to pct restore
                     borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
                 fi
                 ;;
             *.rfs)
-                borg export-tar ${borg_extra} ${vzborg_repo}::${borg_archive} - | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
+                # backup contains a root file system
+                if [[ ${guest_has_mount_points} = false ]] && [[ ${guest_has_acl} = false ]]; then
+                    # borg export-tar does not preserve acls
+                    # No ACL and no extra mount points, is the simplest case where a direct borg export-tar may be used
+                    borg export-tar ${borg_extra} ${vzborg_repo}::${borg_archive} - | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
+                else
+                    # Will use borg extract first, which preserves acls, and then create
+                    # a tar file or directly pipe tar to pct restore.
+                    #
+                    # Make a directory for the container root filesystem
+                    rfsdir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
+                    cd ${rfsdir}
+                    # Extract files to temporary directory
+                    borg extract ${borg_extra} --numeric-owner  ${vzborg_repo}::${borg_archive}
+                    if [[ ${guest_has_mount_points} = true ]]; then
+                        # It is easiest to generate a pve backup file, than melding with mount points
+                        temp_dump_dir="$(mktemp -d ${temp_dir}/vzborg.XXXXXX)"
+                        dump_file=${borg_archive/${archs_prefix}/vzdump-lxc}
+                        dump_file=${dump_file/rfs/tar}
+                        # generate a compressed tar to save space
+                        # Important: First file in tar must be the container's configuration. If not, pct restore will report missing conf file
+                        tar capf ${temp_dump_dir}/${dump_file}.zst ${common_tar_flags} ./etc/vzdump/pct.conf .
+                        pct restore ${restore_id} ${temp_dump_dir}/${dump_file}.zst --storage ${restore_storage} ${force_overwrite}
+                        rm -r ${temp_dump_dir}
+                    else
+                        # No extra mount points, no need to generate a pve backup file. Piping tar directly to pct restore
+                        tar cpf - ${common_tar_flags} ./etc/vzdump/pct.conf . | pct restore ${restore_id} --storage ${restore_storage} ${force_overwrite} --rootfs ${rootfs_size} --unprivileged ${unprivileged} -
+                    fi
+                    cd
+                    rm -r ${rfsdir}
+                fi
                 ;;
             esac
         fi
@@ -1122,6 +1164,7 @@ vzborg_version() {
 # variables initialization
 readonly archs_prefix=vzborg
 backup_name=''
+common_tar_flags='--one-file-system -p --sparse --numeric-owner --acls --xattrs --xattrs-include=user.* --xattrs-include=security.capability --warning=no-file-ignored --warning=no-xattr-write'
 dry_run=''
 fs_backup='no'
 force_overwrite=''

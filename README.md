@@ -8,6 +8,8 @@ With VzBorg you can:
 
 VzBorg uses vzdump and [BorgBackup](https://www.borgbackup.org/) to allow deduplicated, compressed backups of Proxmox guests, in an optionally encrypted repository.
 
+Optionally, for better deduplication of containers, VzBorg allows file system based backups of them.
+
 For remote backups, you can use your own server, virtual machine, or services like:
 - [rsync.net](https://www.rsync.net/products/borg.html/) Cloud Storage provider with support for borg.
 - [BorgBase](https://www.borgbase.com/) Borg hosting service
@@ -106,13 +108,17 @@ or
 
 `vzborg-105-2020_04_02-17_15_11.vma` for a virtual machine
 
+or
+
+`vzborg-106-2020_04_02-22_53_11.rfs` for an lxc container in file system backup mode
+
 When recreating a Proxmox backup file (getdump command), VzBorg will use the default PVE naming convention, for example:
 
-`vzdump-lxc-104-2020_04_02-17_12_34.tar.lzo` for an lxc container
+`vzdump-lxc-104-2020_04_02-17_12_34.tar.zst` for an lxc container
 
 or
 
-`vzdump-qemu-105-2020_04_02-17_15_11.vma.lzo` for a virtual machine
+`vzdump-qemu-105-2020_04_02-17_15_11.vma.zst` for a virtual machine
 
 ## First steps
 
@@ -136,9 +142,9 @@ Show help about restore command.
 
 Backup guest 201 with default options.
 
-`vzborg backup --id all  --config remote-repo`
+`vzborg backup --id all  --config remote-repo --fs-backup yes`
 
-Backup all guests in proxmox node with default options using configuration file remote-repo.
+Backup all guests in proxmox node with default options using configuration file remote-repo and performing a file system based backup of it's containers.
 
 `vzborg backup --id '101 102 307' --mode stop --purge`
 
