@@ -84,6 +84,14 @@ DEFAULT_CHUNKER='9,16,12,4095'
 # Set a default directory for temporary files
 VZBORG_TEMP_DIR="/tmp"
 
+# QMRESTORE DELAY
+#
+# VzBorg restores VM by pipng borg output to qmrestore
+# When borg repository is on slow storage like NFS qmrestore may timeout waiting for input from borg
+# This option artificially introduces delay (in seconds) before starting qmrestore to circumvent that
+#
+# VZBORG_QMRESTORE_DELAY='0'
+
 # EXTRA BORG OPTIONS
 #
 # Example for showing borg progress

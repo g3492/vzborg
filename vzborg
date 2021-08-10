@@ -1003,7 +1003,7 @@ vzborg_restore() {
 
         say "> Restoring backup ${borg_archive} as ${vm_type} ${restore_id} to storage ${restore_storage}"
         if [[ ${vm_type} == 'VM' ]]; then
-            borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}
+            borg extract ${borg_extra} --stdout ${vzborg_repo}::${borg_archive} | { sleep ${qmrestore_delay}; qmrestore - ${restore_id} --storage ${restore_storage} ${force_overwrite}; }
         else
             if [[ ${guest_has_mount_points} = true ]]; then
                 #echo 'Guest has mount points, restoring to temporary file'
@@ -1163,6 +1163,7 @@ default_keep=${DEFAULT_KEEP:-'--keep-daily=2 --keep-weekly=4 --keep-monthly=12 -
 default_chunker=${DEFAULT_CHUNKER:-'10,23,16,4095'}
 encryption_mode=${ENCRYPTION_MODE:-'repokey-blake2'}
 temp_dir=${VZBORG_TEMP_DIR:-'/tmp'}
+qmrestore_delay=${VZBORG_QMRESTORE_DELAY:-'0'}
 if [[ -z ${vzborg_repo} ]]; then
     vzborg_repo=${VZBORG_REPO:-'/var/lib/vz/vzborg'}
 fi
