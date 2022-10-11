@@ -200,6 +200,8 @@ vzborg_backup() {
                 vm_ext='vma'
                 vm_hostname="$(grep -m 1 ^name ${vm_conf_dir}${VM_ID}.conf | awk '{print $2}')"
                 vm_config="$(cat ${vm_conf_dir}${VM_ID}.conf)"
+                vm_status="$(qm status $VM_ID | sed 's/status: //g')"
+                mapfile -t vm_pci_config < <(grep "hostpci" ${vm_conf_dir}${VM_ID}.conf)
             else
                 # unknown vm
                 vm_type='--'
@@ -209,6 +211,14 @@ vzborg_backup() {
                 continue
             fi
         fi
+
+        #delete list of pci devices from stopped VMs
+        if [[ ($vm_status = "stopped" && $vm_type = "VM") ]]; then
+          for i in "${vm_pci_config[@]}"; do
+            sed -i "/$i/d" ${vm_conf_dir}${VM_ID}.conf 
+          done
+        fi
+
 
         # Include vm type, id, hostname and configuration info as comment in backup
         backup_comment=$(echo -e "--comment=([vm_type]=${vm_type} [vm_id]=${VM_ID} [vm_hostname]=${vm_hostname})\nBEGIN_CONFIG>\n${vm_config}\n<END_CONFIG")
@@ -243,6 +253,14 @@ vzborg_backup() {
         say "<- Finished backup of ${vm_type} ${VM_ID} (${vm_hostname})." |& tee -a ${detail_file}
 
         printf "$line_format" $vm_type $VM_ID $(($backup_es / 3600)) $(($backup_es % 3600 / 60)) $(($backup_es % 60)) $backup_status $(($purge_es / 3600)) $(($purge_es % 3600 / 60)) $(($purge_es % 60)) $purge_status $vm_hostname >>${summary_file}
+        #add list of pci devices to stopped VMs
+
+        if [[ ($vm_status = "stopped" && $vm_type = "VM") ]]; then
+          for i in "${vm_pci_config[@]}"; do
+            echo $i >> ${vm_conf_dir}${VM_ID}.conf
+          done
+        fi
+
     done
 }
 vzborg_delete() {
