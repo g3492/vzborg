@@ -1067,9 +1067,9 @@ vzborg_repo=''
 vzdump_quiet=0
 
 # Containers configuration directory
-ct_conf_dir="/etc/pve/nodes/$(hostname)/lxc/"
+ct_conf_dir="/etc/pve/nodes/$(hostname -s)/lxc/"
 # Qemu virtual machines configuration directory
-vm_conf_dir="/etc/pve/nodes/$(hostname)/qemu-server/"
+vm_conf_dir="/etc/pve/nodes/$(hostname -s)/qemu-server/"
 
 # Load variables from default configuration file
 . /etc/vzborg/default
