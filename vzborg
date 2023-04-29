@@ -229,7 +229,7 @@ vzborg_backup() {
         if [[ ${purge_on_backup} = true ]]; then
             SECONDS=0
             say "--> Purging" |& tee -a ${detail_file}
-            if borg prune ${borg_extra} -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
+            if borg prune ${borg_extra} -v -s --list ${dry_run} ${retention} --glob-archives ${archs_prefix}-${VM_ID}* ${vzborg_repo} |& tee -a ${detail_file}; then
                 purge_status='done'
             else
                 purge_status='failed'
@@ -806,7 +806,7 @@ vzborg_purge() {
         fi
 
         SECONDS=0
-        if borg prune ${borg_extra} -v -s --list ${dry_run} ${retention} --prefix ${archs_prefix}-${VM_ID} ${vzborg_repo} |& tee -a ${detail_file}; then
+        if borg prune ${borg_extra} -v -s --list ${dry_run} ${retention} --glob-archives ${archs_prefix}-${VM_ID}* ${vzborg_repo} |& tee -a ${detail_file}; then
             purge_status='done'
         else
             purge_status='failed'
